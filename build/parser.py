@@ -17,11 +17,11 @@ target_files = [
 
 for file_route in target_files:
                                                          
-    current_parquet_path = os.path.join(pf.BASE_PARQUET_DIR, file_route)
+    current_parquet_path = os.path.join(pf.TELEMETRY_TEST_DIR, file_route)
     
     pure_filename = file_route.split('/')[-1]                                
     binary_filename = pure_filename.replace('.parquet', '.bin')
-    current_output_bin_path = os.path.join(pf.BASE_OUTPUT_DIR, binary_filename)
+    current_output_bin_path = os.path.join(pf.TELEMETRY_TEST_DIR, binary_filename)
 
     print(current_parquet_path)
 

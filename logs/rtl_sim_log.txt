@@ -1,0 +1,24 @@
+
+=== STAGE: Verilog Simulation Run | EXECUTION TIME: 2026-07-18 12:02:38.276217 ===
+VCD info: dumpfile logs/dump.vcd opened for output.
+
+[TB] --- Starting Encoder Execution Loop ---
+Time: 45 | State: 01 | RAM Addr Req:    0 | RAM Data Latched: 0x0009
+Time: 55 | State: 10 | RAM Addr Req:    1 | RAM Data Latched: 0x0009
+Time: 65 | State: 10 | RAM Addr Req:    2 | RAM Data Latched: 0x0004
+   >>> PUSH BITSTREAM -> Count:  5 | Bits: 00000000000000000000000000011001
+Time: 75 | State: 10 | RAM Addr Req:    3 | RAM Data Latched: 0x007e
+   >>> PUSH BITSTREAM -> Count:  4 | Bits: 00000000000000000000000000001000
+Time: 85 | State: 10 | RAM Addr Req:    3 | RAM Data Latched: 0x000e
+   >>> PUSH BITSTREAM -> Count: 32 | Bits: 11111111111111111111111111111010
+Time: 95 | State: 10 | RAM Addr Req:    4 | RAM Data Latched: 0x000e
+   >>> PUSH BITSTREAM -> Count: 38 | Bits: 00000000000000000000000000000011
+   ❌ [CRITICAL ERROR] Bus violation! Count 38 exceeds maximum 32-bit width.
+Time: 105 | State: 10 | RAM Addr Req:    5 | RAM Data Latched: 0x0001
+   >>> PUSH BITSTREAM -> Count:  6 | Bits: 00000000000000000000000000111010
+Time: 115 | State: 10 | RAM Addr Req:    6 | RAM Data Latched: 0x0007
+   >>> PUSH BITSTREAM -> Count:  3 | Bits: 00000000000000000000000000000001
+Time: 125 | State: 11 | RAM Addr Req:    6 | RAM Data Latched: 0x0000
+   >>> PUSH BITSTREAM -> Count:  4 | Bits: 00000000000000000000000000001011
+[TB] --- Simulation Run Completed Successfully ---
+/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/tb/tb_encoder.v:124: $finish called at 145000 (1ps)

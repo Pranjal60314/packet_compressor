@@ -1,17 +1,18 @@
-import random
 import os
-import subprocess
 import sys
 import re
-import pathfiles as pf
+import subprocess
+import random
 import numpy as np
 from collections import Counter
+
+# Import your centralized infrastructure registry module
+import pathfiles as pf
 
 def load_telemetry_samples(bin_path, count, offset=0):                                                                  
     if not os.path.exists(bin_path):
         raise FileNotFoundError(f"Missing telemetry file at: {bin_path}")
     
-    # FIX: Read as uint16 to match your parser's binary format
     data = np.fromfile(bin_path, dtype=np.uint16)
     sample_slice = data[offset : offset + count]                                                                                             
     
@@ -27,7 +28,6 @@ def calculate_input_parameters(data_list):
     total_samples = len(arr)
     
     counts = Counter(data_list)
-    # Added minor epsilon to protect against log2(0) boundary edge-cases safely
     entropy = -sum((c / total_samples) * np.log2(c / total_samples) for c in counts.values())
     
     avg_delta = np.mean(np.abs(deltas)) if len(deltas) > 0 else 0   
@@ -42,43 +42,38 @@ def calculate_input_parameters(data_list):
     }
 
 
-def generate_c_header_array(filename, telemetry_data, array_size, batch_size, package_size):
-    input_data = telemetry_data[:array_size]
-    
-    lines = []
-    for i in range(0, len(input_data), 10):
-        chunk = input_data[i:i+10]
-        chunk_str = ", ".join(str(num) for num in chunk)
-        lines.append("    " + chunk_str)
-        
-    array_content = ",\n".join(lines)
-    
-    with open(filename, "w") as f:
-        f.write("#ifndef TEST_DATA_H\n#define TEST_DATA_H\n\n")
-        f.write(f"#define ARRAY_SIZE {array_size}\n")
-        f.write(f"#define PACKAGE_SIZE {package_size}\n")
-        f.write(f"#define BATCH_SIZE {batch_size}\n\n")
-        f.write("#include <stdint.h>\n\n") 
-        f.write(f"const uint16_t test_input[ARRAY_SIZE] = {{\n{array_content}\n}};\n\n")
-        f.write("#endif\n")
+def save_telemetry_chunk_bin(filename, telemetry_data):
+    """
+    Drops raw 16-bit integers directly into a temporary binary payload 
+    file for the C executable to read.
+    """
+    arr = np.array(telemetry_data, dtype=np.uint16)
+    arr.tofile(filename)
 
 
-def run_and_analyze(array_size, batch_size, package_size):
-    # Added Option A unity build linking rules to keep individual compilation clean
+def compile_c_engine():
+    """Compiles the executable using centralized path configs."""
+    print(f"[+] Compiling C engine: {pf.C_FILE_PATH} -> {pf.BINARY_PATH}")
     compile_cmd = f"gcc \"{pf.C_FILE_PATH}\" -o \"{pf.BINARY_PATH}\" -lm"
     compile_proc = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True)
     
     if compile_proc.returncode != 0:
         print("[-] Compilation Failed!")
         print(compile_proc.stderr)
-        return None
+        return False
+    return True
 
-    run_proc = subprocess.run(pf.BINARY_PATH, shell=True, capture_output=True, text=True)
+
+def run_and_analyze(bin_file_path, array_size, batch_size, package_size):
+    """
+    Executes the pre-compiled C engine passing variables cleanly as argument variables.
+    """
+    run_cmd = f"\"{pf.BINARY_PATH}\" \"{bin_file_path}\" {batch_size} {package_size}"
+    run_proc = subprocess.run(run_cmd, shell=True, capture_output=True, text=True)
     c_output = run_proc.stdout
-
-    with open("/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/logs/csim_log.txt", "a") as c_log:
+    with open(pf.LOGS["c"], "a") as c_log:
         c_log.write(f"\n{'='*40}\n")
-        c_log.write(f" C EXECUTION LOG | PACKET SIZE: {array_size}\n")
+        c_log.write(f" C EXECUTION LOG | CHUNK FILE: {bin_file_path} | PACKET SIZE: {array_size}\n")
         c_log.write(f"{'='*40}\n")
         c_log.write(c_output)
 
@@ -115,56 +110,66 @@ def run_and_analyze(array_size, batch_size, package_size):
 
 
 if __name__ == "__main__":
-    ITERATIONS = 10000
-    TARGET_BATCH_SIZE = 64
-    TARGET_PACKAGE_SIZE = 16                                                                         
-    TARGET_PACKET_SIZE = 160
-    #160 0000
-
-    if os.path.exists("sim_log.txt"):
-        os.remove("sim_log.txt")
-    if os.path.exists("csim_log.txt"):
-        os.remove("csim_log.txt")
+    # REFACTOR: Dynamically target and wipe logs using the central tracking mappings
+    for log_path in pf.LOGS.values():
+        if os.path.exists(log_path):
+            os.remove(log_path)
+            
+    # Define a portable path for the temporary execution bin file inside your build workspace
+    TEMP_BIN_PATH = os.path.join(pf.BUILD_DIR, "temp_chunk.bin")
+    if os.path.exists(TEMP_BIN_PATH):
+        os.remove(TEMP_BIN_PATH)
         
     print("=== STARTING LINEAR HIERARCHICAL BATCH COMPRESSION PROFILING ===")
     
-    BASE_BIN_DIR = "/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/build/telemetry_test/"
+    # Compile the underlying engine
+    if not compile_c_engine():
+        sys.exit(1)
+    
+    # Dataset dictionary target map
+    target_files = {
+        "AMT00103_raw.bin": "Magnetic Flux in Y of local CoF", 
+        "CAT35000_raw.bin": "Acc. sensor head 1 raw acceleration x comp",
+        "IHT13011_raw.bin": "Current TT thrust demand",
+        "MHT00001_raw.bin": "Low Pressure Transducer",
+        "PHT01000_raw.bin": "Analogue Voltage Sensor line",
+        "SST00101_raw.bin": "Temperature_sensor",
+        "XHT00010_raw.bin": "TRSP1 TX middle voltage of bridge between +6.3 V and -6.3 V"
+    }
 
-    # Focus on the processed binary files
-    target_files = [
-        "AMT00103_raw.bin", 
-        "CAT35000_raw.bin",
-        "IHT13011_raw.bin",
-        "MHT00001_raw.bin",
-        "PHT01000_raw.bin",
-        "SST00101_raw.bin",
-        "XHT00010_raw.bin"
-    ]
-
-    for filename in target_files:
-        bin_data_path = os.path.join(BASE_BIN_DIR, filename)
+    for filename, description in target_files.items():
+        # REFACTOR: Resolved path utilizing pf.BASE_PARQUET_DIR cleanly
+        bin_data_path = os.path.join(pf.TELEMETRY_TEST_DIR , filename)
         if not os.path.exists(bin_data_path):
             print(f"[-] Missing binary file target {filename}... Skipping.")
             continue
             
-        print(f"\nProcessing streams for target file: {filename}")
-        print(f"[ Processing ] Running {ITERATIONS} iterations. Chunk size: {TARGET_PACKET_SIZE}")
+        print(f"\nProcessing target stream: {filename} ({description})")
+        print(f"[ Processing ] Running {pf.ITERATIONS} iterations. Chunk size: {pf.TARGET_PACKET_SIZE}")
         
         iteration_summaries = []
 
-        for iteration in range(ITERATIONS):                                           
-            current_offset = iteration * TARGET_PACKET_SIZE
+        for iteration in range(pf.ITERATIONS):                                           
+            current_offset = iteration * pf.TARGET_PACKET_SIZE
             
             try:
-                real_telemetry = load_telemetry_samples(bin_data_path, TARGET_PACKET_SIZE, offset=current_offset)
+                real_telemetry = load_telemetry_samples(bin_data_path, pf.TARGET_PACKET_SIZE, offset=current_offset)
             except Exception as e:
-                # Normal behavior when hit end of file boundary streams
                 print(f"[!] Data boundary reached or file complete: {e}")
                 break
 
             input_params = calculate_input_parameters(real_telemetry)
-            generate_c_header_array(pf.HEADER_PATH, real_telemetry, TARGET_PACKET_SIZE, TARGET_BATCH_SIZE, TARGET_PACKAGE_SIZE)                                    
-            run_params = run_and_analyze(TARGET_PACKET_SIZE, TARGET_BATCH_SIZE, TARGET_PACKAGE_SIZE)
+            
+            # Write runtime chunk out
+            save_telemetry_chunk_bin(TEMP_BIN_PATH, real_telemetry)
+            
+            # Execute simulation against current matrix iteration parameters
+            run_params = run_and_analyze(
+                TEMP_BIN_PATH, 
+                pf.TARGET_PACKET_SIZE, 
+                pf.TARGET_BATCH_SIZE, 
+                pf.TARGET_PACKAGE_SIZE
+            )
             
             if run_params is None:
                 continue
@@ -185,15 +190,17 @@ if __name__ == "__main__":
             all_k_pool = []
             for p in iteration_summaries:
                 all_k_pool.extend(p["k_values"])
+
+            print("ALL K ELEMENTS", all_k_pool)
             
             avg_k_value = np.mean(all_k_pool) if all_k_pool else 0
             k_counts = Counter(all_k_pool)
             total_k_elements = len(all_k_pool)
 
-            # Append mode log reporting so profiles do not overwrite previous metrics
-            with open("/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/logs/sim_log.txt", "a") as f:
+            # REFACTOR: Swapped out hardcoded string log targets for pf.LOGS["python"]
+            with open(pf.LOGS["python"], "a") as f:
                 f.write("=" * 70 + "\n")
-                f.write(f"  FILE: {filename} REPORT ({total_runs} ITERATIONS)\n")
+                f.write(f"  FILE: {filename} REPORT ({total_runs} ITERATIONS) : {description}\n")
                 f.write("=" * 70 + "\n")
                 f.write(f"Average Entropy              : {avg_entropy:.4f} bits/sample\n")
                 f.write(f"Average Delta                : {avg_delta:.4f}\n")
@@ -216,4 +223,10 @@ if __name__ == "__main__":
                 for k_val in sorted(k_counts.keys()):
                     percentage = (k_counts[k_val] / total_k_elements) * 100
                     print(f"    -> k = {k_val:<2} : {k_counts[k_val]:<5} selections ({percentage:.2f}%)")
+            else:
+                print("NO K COMPONENTS FOUND")
             print("=" * 80 + "\n")
+            
+    # Clean up the final temporary iteration binary when done
+    if os.path.exists(TEMP_BIN_PATH):
+        os.remove(TEMP_BIN_PATH)
