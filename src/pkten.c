@@ -44,11 +44,11 @@ void encoder(const uint16_t *input_buffer,
         if (is_reference && i == 0) {
             local_mapped_values[i] = input_buffer[i];
             track_sample = input_buffer[i];
-            printf("[ %1d ] REFERENCE BYTE:  DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i, local_mapped_values[i], input_buffer[i]);
+            printf("[ %1d ] REFERENCE BYTE: %8d  DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i,input_buffer[i], local_mapped_values[i], input_buffer[i]);
         } else {
             local_mapped_values[i] = delta_processing(track_sample, input_buffer[i]);
             track_sample = input_buffer[i]; 
-            printf("[ %1d ] REGULAR BYTE:    DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i, local_mapped_values[i], input_buffer[i]);                          
+            printf("[ %1d ] REGULAR BYTE: %8d   DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i,input_buffer[i], local_mapped_values[i], input_buffer[i]);                          
         }
     }
 

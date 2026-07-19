@@ -13,7 +13,7 @@ uint8_t k_estimation(uint16_t *buffer, int block_size, bool is_reference) {
             uint32_t unchanged_bits = j;
             uint32_t changed_bits = (compression_sample >> j) + 1;
             compression_length[j] += (changed_bits + unchanged_bits);
-            printf("Compression Length K=%4d sample =%4d length=%4d\n",j,compression_sample,compression_length[j]);
+            //printf("Compression Length K=%4d sample =%4d length=%4d\n",j,compression_sample,compression_length[j]);
         }
     }
 
@@ -29,8 +29,4 @@ uint8_t k_estimation(uint16_t *buffer, int block_size, bool is_reference) {
     printf("---->MIN:%3d \n", min);
 
     return optimal_k;
-}
-
-int main(){
-    return 0;
 }
