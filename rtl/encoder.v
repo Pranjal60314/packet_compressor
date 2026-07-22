@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module encoder #(
-    parameter DATA_WIDTH = 16,
+    parameter SAMPLE_SIZE = 16,
     parameter ADDR_WIDTH = 10
 )(
     input  wire                  clk,
@@ -16,38 +16,39 @@ module encoder #(
     input  wire [7:0]            optimal_k,
 
     output reg  [ADDR_WIDTH-1:0] ram_addr,
-    input  wire [DATA_WIDTH-1:0] ram_data,
+    input  wire [SAMPLE_SIZE-1:0] ram_data,
 
     output reg                   pack_en,
-    output reg                   flush_en,
     output reg  [31:0]           pack_bits,
-    output reg  [5:0]            pack_count, // Safely handles up to 32 bits per cycle
+    output reg  [5:0]            pack_count,                                          
     input  wire                  packer_ready
 );
 
-    localparam IDLE         = 2'b00,
-               SETUP_READ   = 2'b01,                                                           
-               STREAM       = 2'b10, 
-               FLUSH        = 2'b11;
+    localparam IDLE         = 3'b000,
+               PACK_K       = 3'b001,
+               SETUP_READ   = 3'b010,                                                           
+               STREAM       = 3'b011, 
+               DONE         = 3'b100;
 
-    reg [1:0]            state;
+    // FIX 1: Expanded state width from [1:0] to [2:0] to fit DONE (3'b100)
+    reg [2:0]            state;
     reg [ADDR_WIDTH-1:0] samples_processed;
-    reg                  anomaly_second_half; // High when streaming the upper half of a 32+ bit code
+    reg                  anomaly_second_half;                                                        
 
-    // 64-bit internal width to gracefully swallow anomalies
-    wire [DATA_WIDTH-1:0] q;
-    wire [DATA_WIDTH-1:0] r;
+                                                            
+    wire [SAMPLE_SIZE-1:0] q;
+    wire [SAMPLE_SIZE-1:0] r;
     wire [63:0]           unary_bits;
     wire [6:0]            unary_len;
     wire [63:0]           combined_bits;
     wire [6:0]            total_len;
 
     reg [31:0] anomaly_upper_bits;
+    reg [5:0]  anomaly_rem_count;
 
     assign q = ram_data >> optimal_k;
     assign r = ram_data & ((1'b1 << optimal_k) - 1'b1);
-                                                                                          
-    // 64-bit safe shift operation
+                                                                                               
     assign unary_bits = (((64'd1 << q) - 64'd1) << 1);
     assign unary_len  = q + 1'b1;
 
@@ -61,14 +62,12 @@ module encoder #(
             encoder_busy        <= 1'b0;
             ram_addr            <= 0;
             pack_en             <= 1'b0;
-            flush_en            <= 1'b0;
             pack_bits           <= 32'd0;
             pack_count          <= 6'd0;
             samples_processed   <= 0;
             anomaly_second_half <= 1'b0;
         end else begin
             pack_en  <= 1'b0;
-            flush_en <= 1'b0;
             done     <= 1'b0;
 
             case (state)
@@ -78,7 +77,18 @@ module encoder #(
                         samples_processed   <= 0;
                         ram_addr            <= start_addr;
                         anomaly_second_half <= 1'b0;
-                        state               <= SETUP_READ;
+                        state               <= PACK_K;
+                    end
+                end
+
+                // FIX 2 & 3: Added packer_ready check, updated count to 8 bits, and added transition to SETUP_READ
+                PACK_K: begin
+                    if (packer_ready) begin
+                        pack_bits  <= {24'b0, optimal_k};
+                        pack_count <= 6'd8; // 8-bit k header
+                        pack_en    <= 1'b1;
+                        state      <= SETUP_READ;
+                        $display("[ENCODER] PACKING OPTIMAL_K: %8b PACK_COUNT: %4d\n",pack_bits,pack_count);
                     end
                 end
 
@@ -89,27 +99,33 @@ module encoder #(
 
                 STREAM: begin
                     if (packer_ready) begin
+                        $display("[ENCODER] PACKING BEGINS: \n");
                         if (!anomaly_second_half) begin
                             pack_en <= 1'b1;
+
                             if (total_len > 7'd32) begin
-                                // 1. Send lower 32 bits immediately
-                                pack_bits           <= combined_bits[31:0];
+                                anomaly_rem_count   <= (total_len - 7'd32); 
+
+                                pack_bits           <= combined_bits >> (total_len - 7'd32);
                                 pack_count          <= 6'd32;
-                                
-                                // 2. SAVE the upper bits right now before ram_data changes!
-                                anomaly_upper_bits  <= combined_bits[63:32];
+
+                                anomaly_upper_bits  <= combined_bits & ((64'd1 << (total_len - 7'd32)) - 64'd1); 
                                 anomaly_second_half <= 1'b1; 
-                                
-                                // 3. Freeze ram_addr so the RAM doesn't advance further
+
                                 ram_addr            <= ram_addr; 
+
+                                $display("[ENCODER] ANOMALY DETECTED WORD SIZE GREATER THAN 32\n");
+                                $display("[ENCODER] PACK_BITS: %32b PACK_COUNT: %4d \n",pack_bits,pack_count);
+
                             end else begin
-                                // Normal single-cycle transmission
                                 pack_bits           <= combined_bits[31:0];
                                 pack_count          <= total_len[5:0];
                                 samples_processed   <= samples_processed + 1'b1;
-                                
+
+                                $display("[ENCODER] PACK_BITS: %32b PACK_COUNT: %4d\n",pack_bits, pack_count);
+
                                 if (samples_processed + 1'b1 >= block_size) begin
-                                    state <= FLUSH;
+                                    state <= DONE;
                                 end else begin
                                     ram_addr <= ram_addr + 1'b1;
                                 end
@@ -117,15 +133,16 @@ module encoder #(
                         end else begin
                             // --- SECOND HALF OF ANOMALY ---
                             pack_en             <= 1'b1;
-                            
-                            // Read from our safe registered holding buffer instead of the live wire
                             pack_bits           <= anomaly_upper_bits;
-                            pack_count          <= (total_len - 7'd32);
-                            
+                            pack_count          <= anomaly_rem_count; 
+
                             anomaly_second_half <= 1'b0; 
                             samples_processed   <= samples_processed + 1'b1;
+
+                            $display("[ENCODER] PROCESSING ANOMALY CARRYOVER PACK_BITS: %32b PACK_COUNT: %4d\n", pack_bits, pack_count);
+
                             if (samples_processed + 1'b1 >= block_size) begin
-                                state <= FLUSH;
+                                state <= DONE;
                             end else begin
                                 ram_addr <= ram_addr + 1'b1;
                             end
@@ -133,9 +150,9 @@ module encoder #(
                     end
                 end
 
-                FLUSH: begin
+                DONE: begin
                     if (packer_ready) begin
-                        flush_en     <= 1'b1;
+                        $display("[ENCODER] ENCODER DONE ++++++++++++++++++++\n");
                         state        <= IDLE;
                         done         <= 1'b1;
                         encoder_busy <= 1'b0;

@@ -2,11 +2,10 @@ import os
 import sys
 import re
 import subprocess
-import random
+import gc
+import csv  # Added for Excel-compatible logging
 import numpy as np
 from collections import Counter
-
-# Import your centralized infrastructure registry module
 import pathfiles as pf
 
 def load_telemetry_samples(bin_path, count, offset=0):                                                                  
@@ -43,10 +42,7 @@ def calculate_input_parameters(data_list):
 
 
 def save_telemetry_chunk_bin(filename, telemetry_data):
-    """
-    Drops raw 16-bit integers directly into a temporary binary payload 
-    file for the C executable to read.
-    """
+    """Drops raw 16-bit integers directly into a temporary binary payload file."""
     arr = np.array(telemetry_data, dtype=np.uint16)
     arr.tofile(filename)
 
@@ -64,16 +60,25 @@ def compile_c_engine():
     return True
 
 
-def run_and_analyze(bin_file_path, array_size, batch_size, package_size):
-    """
-    Executes the pre-compiled C engine passing variables cleanly as argument variables.
-    """
-    run_cmd = f"\"{pf.BINARY_PATH}\" \"{bin_file_path}\" {batch_size} {package_size}"
-    run_proc = subprocess.run(run_cmd, shell=True, capture_output=True, text=True)
-    c_output = run_proc.stdout
-    with open(pf.LOGS["c"], "a") as c_log:
+def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
+    """Executes the pre-compiled C engine by streaming binary data to stdin."""
+    arr_bytes = np.array(telemetry_data, dtype=np.uint16).tobytes()
+    run_cmd = [pf.BINARY_PATH, "-", str(batch_size), str(package_size)]
+    
+    run_proc = subprocess.run(
+        run_cmd, 
+        input=arr_bytes,
+        capture_output=True, 
+        text=False
+    )
+    
+    # Safely decode stdout bytes to standard Python string
+    c_output = run_proc.stdout.decode('utf-8', errors='replace')
+    
+    # Overwrite the log per run to prevent multi-GB memory accumulation
+    with open(pf.LOGS["c"], "w", encoding="utf-8") as c_log:
         c_log.write(f"\n{'='*40}\n")
-        c_log.write(f" C EXECUTION LOG | CHUNK FILE: {bin_file_path} | PACKET SIZE: {array_size}\n")
+        c_log.write(f" C EXECUTION LOG | PACKET SIZE: {array_size}\n")
         c_log.write(f"{'='*40}\n")
         c_log.write(c_output)
 
@@ -97,7 +102,7 @@ def run_and_analyze(bin_file_path, array_size, batch_size, package_size):
     else:
         total_transmission_bits = int(match.group(1))
 
-    k_values = [int(k) for k in re.findall(r"===>OPTIMAL K:\s*(\d+)", c_output)]
+    k_values = [int(k) for k in re.findall(r"OPTMIAL K VALUE:\s*(\d+)", c_output)]
     uncompressed_bits = array_size * 16
     compression_ratio = uncompressed_bits / total_transmission_bits if total_transmission_bits > 0 else 0
     bits_per_sample = total_transmission_bits / array_size
@@ -108,25 +113,37 @@ def run_and_analyze(bin_file_path, array_size, batch_size, package_size):
         "k_values": k_values
     }
 
-
 if __name__ == "__main__":
-    # REFACTOR: Dynamically target and wipe logs using the central tracking mappings
+    # Dynamically target and wipe standard logs
     for log_path in pf.LOGS.values():
         if os.path.exists(log_path):
             os.remove(log_path)
             
-    # Define a portable path for the temporary execution bin file inside your build workspace
+    # Setup the requested target data folder for Excel outputs
+    # Using 'sql_data' within the build space to guarantee write permissions
+
+    
+    # Establish Excel-friendly Column Headers
+    csv_headers = [
+        "Filename", "Iteration", "Offset", "Entropy", "Avg_Delta", 
+        "Delta_Variance", "Zero_Deltas_Pct", "Compression_Ratio", 
+        "Bits_Per_Sample", "Selected_K_Values"
+    ]
+    
+    # Initialize the CSV tracking table
+    with open(pf.LOGS["csv_file"], mode="w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(csv_headers)
+
     TEMP_BIN_PATH = os.path.join(pf.BUILD_DIR, "temp_chunk.bin")
     if os.path.exists(TEMP_BIN_PATH):
         os.remove(TEMP_BIN_PATH)
         
     print("=== STARTING LINEAR HIERARCHICAL BATCH COMPRESSION PROFILING ===")
     
-    # Compile the underlying engine
     if not compile_c_engine():
         sys.exit(1)
     
-    # Dataset dictionary target map
     target_files = {
         "AMT00103_raw.bin": "Magnetic Flux in Y of local CoF", 
         "CAT35000_raw.bin": "Acc. sensor head 1 raw acceleration x comp",
@@ -138,7 +155,6 @@ if __name__ == "__main__":
     }
 
     for filename, description in target_files.items():
-        # REFACTOR: Resolved path utilizing pf.BASE_PARQUET_DIR cleanly
         bin_data_path = os.path.join(pf.TELEMETRY_TEST_DIR , filename)
         if not os.path.exists(bin_data_path):
             print(f"[-] Missing binary file target {filename}... Skipping.")
@@ -160,12 +176,8 @@ if __name__ == "__main__":
 
             input_params = calculate_input_parameters(real_telemetry)
             
-            # Write runtime chunk out
-            save_telemetry_chunk_bin(TEMP_BIN_PATH, real_telemetry)
-            
-            # Execute simulation against current matrix iteration parameters
             run_params = run_and_analyze(
-                TEMP_BIN_PATH, 
+                real_telemetry, 
                 pf.TARGET_PACKET_SIZE, 
                 pf.TARGET_BATCH_SIZE, 
                 pf.TARGET_PACKAGE_SIZE
@@ -176,6 +188,26 @@ if __name__ == "__main__":
 
             profile = {**input_params, **run_params}
             iteration_summaries.append(profile)
+
+            # SCRIPT ADDITION: Log this individual iteration row instantly to the Excel sheet
+            # Arrays are joined with a semicolon (;) to remain safely contained inside a single Excel cell
+            k_string = ";".join(map(str, run_params["k_values"]))
+            
+            with open(pf.LOGS["csv_file"], mode="a", newline="", encoding="utf-8") as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow([
+                    filename,
+                    iteration,
+                    current_offset,
+                    f"{input_params['entropy']:.4f}",
+                    f"{input_params['avg_delta']:.4f}",
+                    f"{input_params['delta_variance']:.4f}",
+                    f"{input_params['zero_deltas_pct']:.2f}",
+                    f"{run_params['compression_ratio']:.4f}",
+                    f"{run_params['bits_per_sample']:.4f}",
+                    k_string
+                ])
+            gc.collect()
 
         if iteration_summaries:
             total_runs = len(iteration_summaries)
@@ -191,13 +223,10 @@ if __name__ == "__main__":
             for p in iteration_summaries:
                 all_k_pool.extend(p["k_values"])
 
-            print("ALL K ELEMENTS", all_k_pool)
-            
             avg_k_value = np.mean(all_k_pool) if all_k_pool else 0
             k_counts = Counter(all_k_pool)
             total_k_elements = len(all_k_pool)
 
-            # REFACTOR: Swapped out hardcoded string log targets for pf.LOGS["python"]
             with open(pf.LOGS["python"], "a") as f:
                 f.write("=" * 70 + "\n")
                 f.write(f"  FILE: {filename} REPORT ({total_runs} ITERATIONS) : {description}\n")
@@ -227,6 +256,7 @@ if __name__ == "__main__":
                 print("NO K COMPONENTS FOUND")
             print("=" * 80 + "\n")
             
-    # Clean up the final temporary iteration binary when done
     if os.path.exists(TEMP_BIN_PATH):
         os.remove(TEMP_BIN_PATH)
+        
+    print(f"[+] Profiling complete! You can open the Excel-ready sheet here:\n    -> {pf.LOGS["csv_file"]}")

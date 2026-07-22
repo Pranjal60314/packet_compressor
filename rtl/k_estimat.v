@@ -87,6 +87,8 @@ module k_estimation #(
                     end
                     
                     optimal_k  <= current_k;
+                    $display("OPTIMAL K CALCULATED: %3d MINIMUM LENGTH: %6d\n",current_k,current_min);
+
                     min_length <= current_min;
                     done       <= 1'b1;
                     state      <= IDLE;

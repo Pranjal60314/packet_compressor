@@ -81,7 +81,7 @@ module bit_pack (
 
             if (flush_en && fill_reg > 0) begin
                 ram_data     <= shifter_reg[63:32];
-                //$display("(Time: %0t)  SHIFTER FLUSHED [PACKER WRITE] 0x%h ", $time , next_shifter[63:32]);
+                $display("[BIT PACKER]  SHIFTER FLUSHED [PACKER WRITE] 0x%b\n", next_shifter[63:32]);
                 ram_we       <= 1'b1;
                 shifter_reg  <= 64'b0;
                 fill_reg     <= 7'b0;
@@ -89,13 +89,13 @@ module bit_pack (
 
 
             end else if (pack_en && count > 0) begin
-                //$display("(Time: %0t)  PACKER RECEIVED 0x%h (%0d bits)", $time , clean_bits, count);
+                $display("[BIT PACKER] PACKER RECEIVED 0x%b (%0d bits)\n", clean_bits, count);
 
                 if (next_fill >= 7'd32) begin
 
                     // Write upper 32-bit word out to memory space
                     ram_data    <= next_shifter[63:32];
-                    //$display("(Time: %0t)  SHIFTER OVERFLOWED [PACKER WRITE] 0x%h ", $time , next_shifter[63:32]);
+                    $display("[BIT PACKER] SHIFTER OVERFLOWED [PACKER WRITE] 0x%b\n", next_shifter[63:32]);
                     ram_we      <= 1'b1;
                     
                     // Consume the written word and track remainder fractional bits

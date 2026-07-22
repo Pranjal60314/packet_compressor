@@ -11,7 +11,9 @@ TARGET_PACKET_SIZE = 64
 # ==============================================================================
 # 2. DYNAMIC BASE ANCHORS
 # ==============================================================================                                                
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CONFIG_DIR, "..", ".."))
+
 BUILD_DIR = os.path.join(PROJECT_ROOT, "build")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 RTL_DIR = os.path.join(PROJECT_ROOT, "rtl")
@@ -28,14 +30,13 @@ os.makedirs(BUILD_DIR, exist_ok=True)
 SCRIPTS = {
     "kagg":   os.path.join(BUILD_DIR, "kagg.py"),
     "parser": os.path.join(BUILD_DIR, "parser.py"),
-    "test":   os.path.join(BUILD_DIR, "pkt_test.py"),
+    "test":   os.path.join(CONFIG_DIR, "pkt_test.py"),
 }
 
 # ==============================================================================
 # 4. SOURCE FILE TESTING TRACKS
 # ==============================================================================
-C_FILE_PATH = os.path.join(PROJECT_ROOT, "src", "pkten.c")
-HEADER_PATH = os.path.join(PROJECT_ROOT, "src", "test_data.h")                                        
+C_FILE_PATH = os.path.join(PROJECT_ROOT, "src", "pkten.c")                                      
 BINARY_PATH = os.path.join(PROJECT_ROOT, "src", "pkten_test")
 
 # ==============================================================================
@@ -46,7 +47,8 @@ LOGS = {
     "rtl":    os.path.join(LOG_DIR, "rtl_sim_log.txt"),
     "c":      os.path.join(LOG_DIR, "c_sim_log.txt"),
     "rtl_output" : os.path.join(LOG_DIR, "sim.vvp"),
-    "wave_dump"  : os.path.join(LOG_DIR, "wave.vcd")
+    "wave_dump"  : os.path.join(LOG_DIR, "wave.vcd"),
+    "csv_file"   : os.path.join(LOG_DIR,"iteration_profiles.csv")
 }
 
 # ==============================================================================
@@ -88,9 +90,10 @@ DATA_BINS = [
 
 
 def get_all_testbenches():
-    """Scans the RTL directory and returns list of testbench filenames."""
     import os
     try:
         return [f for f in os.listdir(RTL_DIR) if f.startswith("tb_") and f.endswith(".v")]
     except Exception:
         return []
+
+    

@@ -120,47 +120,84 @@ void decoder(uint16_t *output_reconstructed_buffer,
 
     // FIX: Safely prints out the contents of the newly decoded block using the block_size parameter
     printf("[ DECODER DEBUG ] Current Reconstructed Block: ");
-    print_buffer(output_reconstructed_buffer, block_size);
+    //print_buffer(output_reconstructed_buffer, block_size);
 }
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
-        fprintf(stderr, "Usage: %s <input_file.bin> <batch_size> <package_size>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <input_file.bin or -> <batch_size> <package_size>\n", argv[0]);
         return 1;
     }
 
+    char *input_source = argv[1];
     int BATCH_SIZE = atoi(argv[2]);
     int PACKAGE_SIZE = atoi(argv[3]);
-                                                        
-    FILE *file = fopen(argv[1], "rb");
-    if (!file) {
-        fprintf(stderr, "Error: Could not open file %s\n", argv[1]);
+
+    FILE *file = NULL;
+    bool is_stdin = (strcmp(input_source, "-") == 0);
+
+    if (is_stdin) {
+        file = stdin;
+#ifdef _WIN32
+        setmode(fileno(stdin), O_BINARY);
+#endif
+    } else {
+        file = fopen(input_source, "rb");
+        if (!file) {
+            fprintf(stderr, "Error: Could not open file %s\n", input_source);
+            return 1;
+        }
+    }
+
+    // Allocate memory dynamically as chunks arrive from stdin or read from file
+    size_t capacity = 4096;
+    size_t total_samples = 0;
+    uint16_t *dynamic_input = malloc(capacity * sizeof(uint16_t));
+    
+    if (!dynamic_input) {
+        fprintf(stderr, "Error: Initial memory allocation failed\n");
+        if (!is_stdin) fclose(file);
         return 1;
     }
-                                                                             
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
 
-    int total_samples = file_size / sizeof(uint16_t);
-    
+    uint16_t temp_val;
+    while (fread(&temp_val, sizeof(uint16_t), 1, file) == 1) {
+        if (total_samples >= capacity) {
+            capacity *= 2;
+            uint16_t *new_ptr = realloc(dynamic_input, capacity * sizeof(uint16_t));
+            if (!new_ptr) {
+                fprintf(stderr, "Error: Memory realloc failed\n");
+                free(dynamic_input);
+                if (!is_stdin) fclose(file);
+                return 1;
+            }
+            dynamic_input = new_ptr;
+        }
+        dynamic_input[total_samples++] = temp_val;
+    }
+
+    if (!is_stdin) {
+        fclose(file);
+    }
+
+    if (total_samples == 0) {
+        fprintf(stderr, "Error: No data read from input stream.\n");
+        free(dynamic_input);
+        return 1;
+    }
+
+    size_t file_size = total_samples * sizeof(uint16_t);
+    uint16_t *decoded_output = malloc(file_size);
+    if (!decoded_output) {
+        fprintf(stderr, "Error: Memory allocation failed for decoded_output\n");
+        free(dynamic_input);
+        return 1;
+    }
+
     if (total_samples % BATCH_SIZE != 0) {
         printf("[ WARNING ] File size is unaligned to BATCH_SIZE. Trailing chunks will be skipped.\n");
     }
 
-    uint16_t *dynamic_input = malloc(file_size);
-    uint16_t *decoded_output = malloc(file_size);                                    
-    
-    if (!dynamic_input || !decoded_output) {
-        fprintf(stderr, "Error: Memory allocation failed\n");
-        if(dynamic_input) free(dynamic_input);
-        fclose(file);
-        return 1;
-    }
-                                                                
-    size_t read_count = fread(dynamic_input, sizeof(uint16_t), total_samples, file);
-    fclose(file);
-    
     memset(decoded_output, 0, file_size);
                                             
     uint32_t output_ram[4096] = {0};                                         
@@ -169,7 +206,7 @@ int main(int argc, char *argv[]) {
     uint8_t fill = 0;
     uint16_t running_history_sample = 0; 
 
-    printf("[ CLI Engine ] Compression running on %d samples...\n", total_samples);
+    printf("[ CLI Engine ] Compression running on %zu samples...\n", total_samples);
                               
     int total_batches = total_samples / BATCH_SIZE;
     for (int batch_num = 0; batch_num < total_batches; batch_num++) {
@@ -183,11 +220,9 @@ int main(int argc, char *argv[]) {
     ptrdiff_t words_written = out_ptr - output_ram;
     printf("[ CLI Engine ] Compression Finished. Occupies %td 32-bit words.\n", words_written);
 
-
-
     printf("[ CLI Engine ] Re-initializing Decoder loop verification...\n");
     printf("PRINTING OUTPUTARRAY FOR VERIFICATION : SIZE:[ %td ] \n", words_written);
-    print_buffer_u32(output_ram, words_written);
+    //print_buffer_u32(output_ram, words_written);
 
     const uint32_t *in_decode_ptr = output_ram;
     uint64_t decode_shifter = 0;
@@ -204,7 +239,7 @@ int main(int argc, char *argv[]) {
     bool is_bit_perfect = true;
     int total_processed_samples = total_batches * BATCH_SIZE;
 
-    print_pipeline_comparison(dynamic_input, decoded_output, total_processed_samples, output_ram, words_written);
+    //print_pipeline_comparison(dynamic_input, decoded_output, total_processed_samples, output_ram, words_written);
 
     for (int i = 0; i < total_processed_samples; i++) {
         if (dynamic_input[i] != decoded_output[i]) {

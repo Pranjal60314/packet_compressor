@@ -93,3 +93,37 @@ RAM
 		- data in for when we want to write the data in 
 - dout - wire array
 		- wire array for when we want to capture the data we want out
+
+ENCODER
+
+- clk - wire 
+		- standard wire to drive the system
+- rst_n - wire
+		- standard wire to start a session here (that is to say keep it high for one session)
+- start - wire
+		- start encoding signal 
+- done -  wire
+		- output wire that signals the completion of a block useful for making a progression signal
+- encoder_busy - wire
+				- encoder busy signal as it says mentions weather the encoder is working on something or the encoding has been completed
+- start_addr - wire array
+			- signals the start value of the address that the machine should start requesting values from the rotating rams value would vary from 0 and 1 based on the reference block or not
+- block_size - wire array
+			- length of the array that has to be encoded values would change from 15 to 16 in case of block size being 16 in other cases that could change
+- optimal_k - wire array 
+			- part of the k_estimator signal array that singals what is the k to be used
+- ram_addr -  wire array
+			- ram port that requests data from the ram
+- ram_data - wire array
+			- ram port that accepts data from the ram
+- pack_en - wire
+			- starts the bit packer module and readies it for packing
+- pack_bits - wire array
+			- bits that are supposed to packed
+- pack_count - wire array
+			- number of bits that are supposed to be packed
+- packer_ready - wire
+			- signals weather the bits are ready to packed
+
+
+Overall the machine is supposed to take a data by giving mem_addr and then as soon as the mem data comes in it combinationally calculates quotient and remainder and accordingly calculates unary bits and length along with the appending a 0 at the end of unary bits. Now however there was always a concern of overflow while the Rice encoding always works great when the data points are not varying by much and are almost always equal however what if because of anomalical values a encoded byte exceeded the 32bit limit even when k is a smaller value overall that would cause concern since in one lcock cycle bit_pack can only accept 32 bits at once for this I made an anomaly cycler which stores the remaining anomalical value slowly shifting the overall encoded bytes 32 at a time till they all are out and about this should solve the problem or atleast this seemed to solve the issue during testing however this means that each encoder cycle requires more than a fixed number cycles to complete the encoding that breaks the symmetry and thus during the overall pipeline structure I will have to make toggle switch that makes sure that each ram has completed its own process before proceeding
