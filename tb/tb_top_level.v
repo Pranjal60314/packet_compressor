@@ -1,12 +1,13 @@
 `timescale 1ns / 1ps
 
-module pipeline_top_tb;
+module top_level_tb;
 
     // -------------------------------------------------------------------------
     // Parameters & File Configurations
     // -------------------------------------------------------------------------
     parameter SAMPLE_SIZE    = 16;
     parameter ADDR_WIDTH     = 10;
+    parameter PACKAGE_SIZE   = 4;
     
     // Replace this string with the actual path to your binary text data file
     localparam FILE_PATH     = "/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/build/telemetry_test/AMT00103_raw.bin"; 
@@ -35,9 +36,10 @@ module pipeline_top_tb;
     // -------------------------------------------------------------------------
     // Device Under Test (DUT)
     // -------------------------------------------------------------------------
-    pipeline_top #(
+    top_level #(
         .ADDR_WIDTH(ADDR_WIDTH),
-        .SAMPLE_SIZE(SAMPLE_SIZE)
+        .SAMPLE_SIZE(SAMPLE_SIZE),
+        .PACKAGE_SIZE(PACKAGE_SIZE)
     ) uut (
         .clk                 (clk),
         .rst_n               (rst_n),
@@ -71,7 +73,7 @@ module pipeline_top_tb;
     // -------------------------------------------------------------------------
     initial begin
         $dumpfile("logs/dump.vcd");
-        $dumpvars(0, pipeline_top_tb);
+        $dumpvars(0, top_level_tb);
     end
 
     // -------------------------------------------------------------------------

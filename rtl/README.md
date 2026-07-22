@@ -12,6 +12,12 @@ PACKET --> PACKAGE --> BATCH --> SAMPLE
 
 The overall architecture is for a rotating ram buffer method to be implemented where there are a couple of modules that are working in tandem, the modules are bit packer, k estimation, encoder from what I want I am working on implementing three ram buffers assuming they are names ramA ramB and ramC the process will involve taking in the input buffer and loading the delta processed inputs into ramA then in the following time step we process ramA with k estimation and load delta processed values into ramB then in the next timestep ramC is loaded with delta processed values and ramB is k estimated and ramA will be encoded into the output buffer again since ramA is basically overwritable after this we can use ramA to again take in the output since it will always be 1st,4th , 7th point we can define the values easily for each package however there is the limitation of using only the difference we can easily assign a parameter to rach of the rams and then dynamically allocate the reference batch as well , thus it is quite easy to pivot to either of the methods and this piplining strategy also simplifies the process of timing
 
+more specifically considering the fact that we have to send the data into multiple different blocks independently a couple things matter 
+ - the ram and which stage is it in 
+ - the ram itself which ram it is 
+ - capturing the number of samples that have already gone through
+these three are of utmost importance the first two manage how and where the data goes through the last one is the control knob about how the data goes through this to control this we would need to implement a mux that can pipeline the data as well. I implemented this by making it a seperated ram generator block 
+
 BIT_PACK.v
 - clk - wire
 		standard clock input

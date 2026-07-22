@@ -1,17 +1,18 @@
 `timescale 1ns / 1ps
 
-module pipeline_top #(
+module top_level #(
     parameter ADDR_WIDTH = 10,
-    parameter SAMPLE_SIZE = 16
+    parameter SAMPLE_SIZE = 16,
+    parameter PACKAGE_SIZE = 4
 )(
     input  wire                    clk,
     input  wire                    rst_n,
 
     // Input Control Interface
-    input  wire                    packet_start,       // Assert to begin a full hardware Packet process
-    input  wire [ADDR_WIDTH-1:0]   packet_sample_count,// Total samples in the incoming buffer packet
-    input  wire [ADDR_WIDTH-1:0]   batch_size,         // Size of 1 Batch (e.g. 16 samples)
-    input  wire [ADDR_WIDTH-1:0]   package_size,       // Samples count per reference sample distance
+    input  wire                    packet_start,        // Assert to begin a full hardware Packet process
+    input  wire [ADDR_WIDTH-1:0]   packet_sample_count, // Total samples in the incoming buffer packet
+    input  wire [ADDR_WIDTH-1:0]   batch_size,          // Size of 1 Batch (e.g. 16 samples)
+    input  wire [ADDR_WIDTH-1:0]   package_size,        // Samples count per reference sample distance
     
     // External Input Port Interfacing
     output reg  [ADDR_WIDTH-1:0]   in_buf_addr,
@@ -23,9 +24,7 @@ module pipeline_top #(
     output wire                    pipeline_done
 );
 
-    // -------------------------------------------------------------------------
-    // Internal States
-    // -------------------------------------------------------------------------
+    // States
     localparam IDLE         = 3'b000;
     localparam FILL_RAM_0   = 3'b001; // Single-buffer warmup
     localparam FILL_RAM_1   = 3'b010; // Dual-buffer warmup
@@ -58,14 +57,6 @@ module pipeline_top #(
     // Optimal K storage context per stage
     reg [7:0]  optimal_k_ping_pong [0:2];
 
-    // -------------------------------------------------------------------------
-    // RAM Signals Routing Mux Matrix
-    // -------------------------------------------------------------------------
-    wire [ADDR_WIDTH-1:0] ram_addr_bus [0:2];
-    wire [SAMPLE_SIZE-1:0] ram_din_bus  [0:2];
-    wire [SAMPLE_SIZE-1:0] ram_dout_bus [0:2];
-    wire                  ram_we_bus   [0:2];
-
     // Stage 1 Delta Loading control lines
     reg  [ADDR_WIDTH-1:0] stg1_ram_addr;
     wire [SAMPLE_SIZE-1:0] stg1_ram_din;
@@ -75,31 +66,76 @@ module pipeline_top #(
     wire [ADDR_WIDTH-1:0] stg2_ram_addr;
     wire [ADDR_WIDTH-1:0] stg3_ram_addr;
 
-    generate
-        genvar i;
-        for (i = 0; i < 3; i = i + 1) begin : ram_blocks
-            ram #(
-                .SAMPLE_SIZE(SAMPLE_SIZE),
-                .ADDR_WIDTH(ADDR_WIDTH)
-            ) ram_inst (
-                .clk (clk),
-                .we  (ram_we_bus[i]),
-                .addr(ram_addr_bus[i]),
-                .din (ram_din_bus[i]),
-                .dout(ram_dout_bus[i])
-            );
+    // Individual RAM Interface Signals
+    wire [ADDR_WIDTH-1:0] ramA_addr, ramB_addr, ramC_addr;
+    wire [SAMPLE_SIZE-1:0] ramA_din,  ramB_din,  ramC_din;
+    wire [SAMPLE_SIZE-1:0] ramA_dout, ramB_dout, ramC_dout;
+    wire                  ramA_we,   ramB_we,   ramC_we;
 
-            // Mux assignments depending on current tracking configuration
-            assign ram_we_bus[i]   = (stage1_ram_id == i) ? stg1_ram_we   : 1'b0;
-            assign ram_addr_bus[i] = (stage1_ram_id == i) ? stg1_ram_addr :
-                                     (stage2_ram_id == i) ? stg2_ram_addr : stg3_ram_addr;
-            assign ram_din_bus[i]  = (stage1_ram_id == i) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
-        end
-    endgenerate
+    // ------------------------------------------------------------------------
+    // Explicit RAM Instantiations (RAM A, RAM B, RAM C)
+    // ------------------------------------------------------------------------
+    ram #(
+        .SAMPLE_SIZE(SAMPLE_SIZE),
+        .ADDR_WIDTH(ADDR_WIDTH)
+    ) ram_A (
+        .clk (clk),
+        .we  (ramA_we),
+        .addr(ramA_addr),
+        .din (ramA_din),
+        .dout(ramA_dout)
+    );
 
-    // -------------------------------------------------------------------------
-    // Module Connections
-    // -------------------------------------------------------------------------
+    ram #(
+        .SAMPLE_SIZE(SAMPLE_SIZE),
+        .ADDR_WIDTH(ADDR_WIDTH)
+    ) ram_B (
+        .clk (clk),
+        .we  (ramB_we),
+        .addr(ramB_addr),
+        .din (ramB_din),
+        .dout(ramB_dout)
+    );
+
+    ram #(
+        .SAMPLE_SIZE(SAMPLE_SIZE),
+        .ADDR_WIDTH(ADDR_WIDTH)
+    ) ram_C (
+        .clk (clk),
+        .we  (ramC_we),
+        .addr(ramC_addr),
+        .din (ramC_din),
+        .dout(ramC_dout)
+    );
+
+    // ------------------------------------------------------------------------
+    // Direct Signal Multiplexing Based on Stage ID (0=A, 1=B, 2=C)
+    // ------------------------------------------------------------------------
+    assign ramA_we   = (stage1_ram_id == 2'd0) ? stg1_ram_we   : 1'b0;
+    assign ramA_addr = (stage1_ram_id == 2'd0) ? stg1_ram_addr :
+                       (stage2_ram_id == 2'd0) ? stg2_ram_addr : stg3_ram_addr;
+    assign ramA_din  = (stage1_ram_id == 2'd0) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
+
+    assign ramB_we   = (stage1_ram_id == 2'd1) ? stg1_ram_we   : 1'b0;
+    assign ramB_addr = (stage1_ram_id == 2'd1) ? stg1_ram_addr :
+                       (stage2_ram_id == 2'd1) ? stg2_ram_addr : stg3_ram_addr;
+    assign ramB_din  = (stage1_ram_id == 2'd1) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
+
+    assign ramC_we   = (stage1_ram_id == 2'd2) ? stg1_ram_we   : 1'b0;
+    assign ramC_addr = (stage1_ram_id == 2'd2) ? stg1_ram_addr :
+                       (stage2_ram_id == 2'd2) ? stg2_ram_addr : stg3_ram_addr;
+    assign ramC_din  = (stage1_ram_id == 2'd2) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
+
+    // Mux RAM Dout outputs into stage read ports
+    wire [SAMPLE_SIZE-1:0] stg2_ram_dout = (stage2_ram_id == 2'd0) ? ramA_dout :
+                                           (stage2_ram_id == 2'd1) ? ramB_dout : ramC_dout;
+
+    wire [SAMPLE_SIZE-1:0] stg3_ram_dout = (stage3_ram_id == 2'd0) ? ramA_dout :
+                                           (stage3_ram_id == 2'd1) ? ramB_dout : ramC_dout;
+
+    // ------------------------------------------------------------------------
+    // Submodule Connections
+    // ------------------------------------------------------------------------
     wire [SAMPLE_SIZE-1:0] stg1_delta_out;
     
     delta_processing delta_unit (
@@ -126,7 +162,7 @@ module pipeline_top #(
         .optimal_k (stg2_k_calculated),
         .min_length(),
         .mem_addr  (k_est_mem_addr),
-        .mem_data  (ram_dout_bus[stage2_ram_id])
+        .mem_data  (stg2_ram_dout)
     );
 
     wire        pack_en_wire;
@@ -148,7 +184,7 @@ module pipeline_top #(
         .block_size  (batch_size),
         .optimal_k   (optimal_k_ping_pong[stage3_ram_id]),
         .ram_addr    (stg3_ram_addr),
-        .ram_data    (ram_dout_bus[stage3_ram_id]),
+        .ram_data    (stg3_ram_dout),
         .pack_en     (pack_en_wire),
         .pack_bits   (pack_bits_wire),
         .pack_count  (pack_count_wire),
@@ -167,16 +203,14 @@ module pipeline_top #(
         .packer_ready(packer_ready_wire)
     );
 
-    // -------------------------------------------------------------------------
-    // Execution Control Flow Controller Architecture Logic
-    // -------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
+    // Control Flow State Machine
+    // ------------------------------------------------------------------------
     assign pipeline_done = (state == IDLE) && !stg1_busy;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-
             state                  <= IDLE;
-            
             in_buf_addr            <= 0;
 
             samples_loaded         <= 0;
@@ -209,7 +243,6 @@ module pipeline_top #(
             stg3_start      <= 1'b0;
             global_flush_en <= 1'b0;
 
-            // Intercept child components completion signals
             if (stg2_done) begin
                 stg2_busy <= 1'b0;
                 optimal_k_ping_pong[stage2_ram_id] <= stg2_k_calculated;
@@ -225,7 +258,7 @@ module pipeline_top #(
                         package_sample_counter <= 0;
                         in_buf_addr            <= 0;
                         
-                        stage1_ram_id          <= 2'd0; // Stage 1 starts on RAM A
+                        stage1_ram_id          <= 2'd0;
                         stage2_ram_id          <= 2'd1;
                         stage3_ram_id          <= 2'd2;
                         
@@ -237,9 +270,7 @@ module pipeline_top #(
                 end
 
                 FILL_RAM_0: begin
-                    // Stage 1 Loading Routine for first Ram
                     if (stg1_ram_we) begin
-
                         prev_sample_reg <= in_buf_data;
                         stg1_ram_addr   <= stg1_ram_addr + 1'b1;
                         in_buf_addr     <= in_buf_addr + 1'b1;
@@ -253,8 +284,6 @@ module pipeline_top #(
                         end
 
                     end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-
-                        // Advance Rotations
                         stage3_ram_id <= stage2_ram_id;
                         stage2_ram_id <= stage1_ram_id;
                         stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
@@ -265,14 +294,11 @@ module pipeline_top #(
                         stg2_start    <= 1'b1;
                         stg2_busy     <= 1'b1;
                         state         <= FILL_RAM_1;
-
                     end
                 end
 
                 FILL_RAM_1: begin
-
                     if (stg1_ram_we) begin
-
                         prev_sample_reg <= in_buf_data;
                         stg1_ram_addr   <= stg1_ram_addr + 1'b1;
                         in_buf_addr     <= in_buf_addr + 1'b1;
@@ -281,13 +307,11 @@ module pipeline_top #(
                         package_sample_counter <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
                         
                         if ((samples_loaded + 1'b1) % batch_size == 0) begin
-
                             stg1_ram_we <= 1'b0;
                             stg1_busy   <= 1'b0;
                         end
 
                     end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-
                         samples_estimated <= samples_estimated + batch_size;
                         
                         stage3_ram_id <= stage2_ram_id;
@@ -302,14 +326,11 @@ module pipeline_top #(
                         stg3_start    <= 1'b1;
                         stg3_busy     <= 1'b1;
                         state         <= STEADY_RUN;
-
                     end
                 end
 
                 STEADY_RUN: begin
-
                     if (stg1_ram_we) begin
-
                         prev_sample_reg <= in_buf_data;
                         stg1_ram_addr   <= stg1_ram_addr + 1'b1;
                         in_buf_addr     <= in_buf_addr + 1'b1;
@@ -318,19 +339,15 @@ module pipeline_top #(
                         package_sample_counter <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
                         
                         if ((samples_loaded + 1'b1) % batch_size == 0 || samples_loaded + 1'b1 >= packet_sample_count) begin
-
                             stg1_ram_we <= 1'b0;
                             stg1_busy   <= 1'b0;
-                        
                         end
                     
                     end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-                    
                         samples_estimated <= samples_estimated + batch_size;
                         samples_encoded   <= samples_encoded + batch_size;
                         
                         if (samples_loaded >= packet_sample_count) begin
-
                             stage3_ram_id <= stage2_ram_id;
                             stage2_ram_id <= stage1_ram_id;
                             
@@ -339,9 +356,7 @@ module pipeline_top #(
                             stg3_start    <= 1'b1;
                             stg3_busy     <= 1'b1;
                             state         <= DRAIN_STAGE1;
-
                         end else begin
-
                             stage3_ram_id <= stage2_ram_id;
                             stage2_ram_id <= stage1_ram_id;
                             stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
@@ -353,15 +368,12 @@ module pipeline_top #(
                             stg2_busy     <= 1'b1;
                             stg3_start    <= 1'b1;
                             stg3_busy     <= 1'b1;
-
                         end
                     end
                 end
 
                 DRAIN_STAGE1: begin
-
                     if (!stg2_busy && !stg3_busy) begin
-
                         samples_estimated <= samples_estimated + batch_size;
                         samples_encoded   <= samples_encoded + batch_size;
                         
@@ -369,25 +381,19 @@ module pipeline_top #(
                         stg3_start    <= 1'b1;
                         stg3_busy     <= 1'b1;
                         state         <= DRAIN_STAGE2;
-
                     end
                 end
 
                 DRAIN_STAGE2: begin
-
                     if (!stg3_busy) begin
                         samples_encoded <= samples_encoded + batch_size;
-                        global_flush_en <= 1'b1; // Trigger exact end of stream flush
+                        global_flush_en <= 1'b1;
                         state           <= GLOBAL_FLUSH;
                     end
-
                 end
 
                 GLOBAL_FLUSH: begin
-
-                    // Accommodate bit_pack extra edge latency window requirement
                     state <= IDLE;
-
                 end
             endcase
         end
