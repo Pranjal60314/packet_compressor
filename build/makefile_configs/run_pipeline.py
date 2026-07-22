@@ -111,7 +111,7 @@ def interactive_module():
                 continue
             
             tb_name = args[0].replace(".v", "")
-            target_vcd = os.path.join(pf.LOG_DIR, f"{tb_name}.vcd")
+            target_vcd = os.path.join(pf.LOG_DIR, f"{tb_name}_dump.vcd")
             vs.show_gtk(target_vcd)
         
         elif command == "run":

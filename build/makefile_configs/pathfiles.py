@@ -3,7 +3,7 @@ import os
 # ==============================================================================
 # 1. CORE PIPELINE SIMULATION CONSTANTS
 # ==============================================================================
-ITERATIONS = 100
+ITERATIONS = 1000
 TARGET_BATCH_SIZE = 16
 TARGET_PACKAGE_SIZE = 2                                                                         
 TARGET_PACKET_SIZE = 64
