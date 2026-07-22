@@ -5,8 +5,8 @@ import os
 # ==============================================================================
 ITERATIONS = 1000
 TARGET_BATCH_SIZE = 16
-TARGET_PACKAGE_SIZE = 2                                                                         
-TARGET_PACKET_SIZE = 64
+TARGET_PACKAGE_SIZE = 8                                                                         
+TARGET_PACKET_SIZE = 1600
 
 # ==============================================================================
 # 2. DYNAMIC BASE ANCHORS
@@ -49,6 +49,7 @@ LOGS = {
     "rtl_output" : os.path.join(LOG_DIR, "sim.vvp"),
     "wave_dump"  : os.path.join(LOG_DIR, "wave.vcd"),
     "csv_file"   : os.path.join(LOG_DIR,"iteration_profiles.csv")
+    
 }
 
 # ==============================================================================

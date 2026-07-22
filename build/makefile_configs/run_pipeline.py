@@ -2,23 +2,58 @@ import os
 import pathfiles as pf
 import helper as hp
 import verilog_sim as vs
-import c_runner as cr
 
             
 def print_help():
-    print("\n" + "="*70)
-    print("                AtmoLITE INTERACTIVE HARDWARE SHELL")
-    print("="*70)
-    print(" Commands available:")
-    print("  tb <tb_name.v> [srcs...]  : Compile and simulate a specific testbench.")
-    print("                              Example: tb tb_bit_packer.v bit_packer.v")
-    print("  show <tb_name.v>          : Open GTKWave for a testbench's wave file.")
-    print("  list                      : List all testbenches found in your RTL folder.")
-    print("  run <c_file>              : Runs the specific c file as requested")
-    print("  clean                     : Delete all compiled binary and log files.")
-    print("  help                      : Display this menu.")
-    print("  exit / quit               : Close the interactive simulation loop.")
-    print("="*70 + "\n")
+    print("\n" + "=" * 78)
+    print("                 PACKET COMPRESSOR HARDWARE SHELL")
+    print("=" * 78)
+
+    print("\n GENERAL COMMANDS")
+    print("  help")
+    print("      Display this help menu.")
+    print()
+    print("  exit | quit")
+    print("      Close the interactive shell.")
+    print()
+    print("  clean")
+    print("      Remove generated simulation binaries, waveforms and log files.")
+    print()
+
+    print(" RTL SIMULATION")
+    print("  tb <tb_name.v> [rtl_sources...]")
+    print("      Compile and simulate a specific testbench.")
+    print("      If no RTL sources are specified, all RTL modules are compiled.")
+    print()
+    print("      Example:")
+    print("          tb tb_encoder.v")
+    print("          tb tb_encoder.v encoder.v ram.v")
+    print()
+    print("  show <tb_name.v>")
+    print("      Open the waveform generated for a testbench using GTKWave.")
+    print("      Example:")
+    print("          show tb_encoder.v")
+    print()
+
+    print(" SOFTWARE BENCHMARKING")
+    print("  benchmark")
+    print("      Run the reference C implementation against the configured")
+    print("      telemetry datasets and generate compression statistics.")
+    print("      Results are written to:")
+    print("          logs/python_sim_log.txt")
+    print("          logs/iteration_profiles.csv")
+    print()
+
+    print(" DATASET MANAGEMENT")
+    print("  download")
+    print("      Download the configured telemetry datasets and parse them")
+    print("      into binary files suitable for benchmarking.")
+    print()
+
+    print(" INFORMATION")
+    print("  list")
+    print("      List all available testbenches present in the tb directory.")
+    print()
 
 
 def interactive_module():
@@ -27,7 +62,7 @@ def interactive_module():
 
     while True:
         try:
-            user_input = input("atmolite-sh > ").strip()
+            user_input = input("compressor-sh > ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nExiting shell...")
             break
@@ -95,7 +130,7 @@ def interactive_module():
                 sources = [
                     os.path.join(pf.RTL_DIR, f) 
                     for f in os.listdir(pf.RTL_DIR) 
-                    if f.endswith(".v") and not f.startswith("tb_")
+                    if f.endswith(".v")
                 ]
 
             base_name = tb_name.replace(".v", "")
@@ -114,11 +149,16 @@ def interactive_module():
             target_vcd = os.path.join(pf.LOG_DIR, f"{tb_name}_dump.vcd")
             vs.show_gtk(target_vcd)
         
-        elif command == "run":
-            if len(args) < 1:
-                print(" Error: Missing filename parameter! Usage: run <c_file>")
-                continue
-            cr.run(pf.SOURCE_DIR + "/" + args[0])
+        elif command == "benchmark":
+            compile_cmd = ["python3",os.path.join(pf.BUILD_DIR,"makefile_configs/pkt_test.py")]
+            hp.run_stage("BENCHMARK",compile_cmd,"python")
+
+        elif command == "download":
+            compile_cmd = ["python3",os.path.join(pf.BUILD_DIR,"makefile_configs/kagg.py")]
+            hp.run_stage("Downloading datasets", compile_cmd, "python")
+            compile_cmd = ["python3",os.path.join(pf.BUILD_DIR,"makefile_configs/parser.py")]
+            hp.run_stage("Parsing datasets", compile_cmd, "python")
+
 
         else:
             print(f" Unknown command: '{command}'. Type 'help' to see valid operations.")

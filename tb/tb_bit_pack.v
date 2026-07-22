@@ -56,7 +56,7 @@ module bit_packer_tb;
     // Stimulus Run
     // -------------------------------------------------------------------------
     initial begin
-        $dumpfile("logs/dump.vcd");
+        $dumpfile("logs/tb_bit_pack_dump.vcd");
         $dumpvars(0, bit_packer_tb);
         // Initialize Signals
         clk      = 0;

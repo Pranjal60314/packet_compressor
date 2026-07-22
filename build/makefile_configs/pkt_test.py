@@ -3,7 +3,7 @@ import sys
 import re
 import subprocess
 import gc
-import csv  # Added for Excel-compatible logging
+import csv                                      
 import numpy as np
 from collections import Counter
 import pathfiles as pf
@@ -42,13 +42,13 @@ def calculate_input_parameters(data_list):
 
 
 def save_telemetry_chunk_bin(filename, telemetry_data):
-    """Drops raw 16-bit integers directly into a temporary binary payload file."""
+                                                                                  
     arr = np.array(telemetry_data, dtype=np.uint16)
     arr.tofile(filename)
 
 
 def compile_c_engine():
-    """Compiles the executable using centralized path configs."""
+                                                                 
     print(f"[+] Compiling C engine: {pf.C_FILE_PATH} -> {pf.BINARY_PATH}")
     compile_cmd = f"gcc \"{pf.C_FILE_PATH}\" -o \"{pf.BINARY_PATH}\" -lm"
     compile_proc = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True)
@@ -61,7 +61,7 @@ def compile_c_engine():
 
 
 def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
-    """Executes the pre-compiled C engine by streaming binary data to stdin."""
+                                                                               
     arr_bytes = np.array(telemetry_data, dtype=np.uint16).tobytes()
     run_cmd = [pf.BINARY_PATH, "-", str(batch_size), str(package_size)]
     
@@ -72,10 +72,10 @@ def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
         text=False
     )
     
-    # Safely decode stdout bytes to standard Python string
+                                                          
     c_output = run_proc.stdout.decode('utf-8', errors='replace')
     
-    # Overwrite the log per run to prevent multi-GB memory accumulation
+                                                                       
     with open(pf.LOGS["c"], "w", encoding="utf-8") as c_log:
         c_log.write(f"\n{'='*40}\n")
         c_log.write(f" C EXECUTION LOG | PACKET SIZE: {array_size}\n")
@@ -114,23 +114,17 @@ def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
     }
 
 if __name__ == "__main__":
-    # Dynamically target and wipe standard logs
+                                               
     for log_path in pf.LOGS.values():
         if os.path.exists(log_path):
             os.remove(log_path)
-            
-    # Setup the requested target data folder for Excel outputs
-    # Using 'sql_data' within the build space to guarantee write permissions
-
-    
-    # Establish Excel-friendly Column Headers
+         
     csv_headers = [
         "Filename", "Iteration", "Offset", "Entropy", "Avg_Delta", 
         "Delta_Variance", "Zero_Deltas_Pct", "Compression_Ratio", 
         "Bits_Per_Sample", "Selected_K_Values"
     ]
-    
-    # Initialize the CSV tracking table
+                                       
     with open(pf.LOGS["csv_file"], mode="w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(csv_headers)
@@ -188,9 +182,7 @@ if __name__ == "__main__":
 
             profile = {**input_params, **run_params}
             iteration_summaries.append(profile)
-
-            # SCRIPT ADDITION: Log this individual iteration row instantly to the Excel sheet
-            # Arrays are joined with a semicolon (;) to remain safely contained inside a single Excel cell
+                                                                   
             k_string = ";".join(map(str, run_params["k_values"]))
             
             with open(pf.LOGS["csv_file"], mode="a", newline="", encoding="utf-8") as csv_file:

@@ -58,7 +58,7 @@ module tb_encoder();
     integer idx;
 
     initial begin
-        $dumpfile("logs/dump.vcd");
+        $dumpfile("logs/tb_encoder_dump.vcd");
         $dumpvars(0, tb_encoder);
                                     
         rst_n        = 0;

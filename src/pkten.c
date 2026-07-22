@@ -55,9 +55,14 @@ void encoder(const uint16_t *input_buffer,
     *last_sample = track_sample;
     printf("TRACKING SAMPLE: %8d \n", track_sample);
                                                 
-    uint8_t optimal_k = k_estimation(local_mapped_values, block_size,0);
+    uint8_t optimal_k;
+    if (is_reference) {
+        optimal_k = k_estimation(&local_mapped_values[1], block_size - 1, true);
+    } else {
+        optimal_k = k_estimation(local_mapped_values, block_size, false);
+    }
     printf("OPTMIAL K VALUE: %1d \n", optimal_k);
-                                         
+
     bit_packer(optimal_k, 4, shifter_reg, fill_reg, output_buffer);
     printf("PACKED K \n");
                                                    
@@ -222,7 +227,7 @@ int main(int argc, char *argv[]) {
 
     printf("[ CLI Engine ] Re-initializing Decoder loop verification...\n");
     printf("PRINTING OUTPUTARRAY FOR VERIFICATION : SIZE:[ %td ] \n", words_written);
-    //print_buffer_u32(output_ram, words_written);
+    print_buffer_u32(output_ram, words_written);
 
     const uint32_t *in_decode_ptr = output_ram;
     uint64_t decode_shifter = 0;

@@ -39,7 +39,7 @@ module tb_k_estimation;
     always #10 clk = ~clk;
 
     initial begin
-        $dumpfile("logs/dump.vcd");
+        $dumpfile("logs/tb_k_estimat_dump.vcd");
         $dumpvars(0, tb_k_estimation);
 
         // Initialize signals

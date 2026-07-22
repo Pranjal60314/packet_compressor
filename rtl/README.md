@@ -16,7 +16,7 @@ more specifically considering the fact that we have to send the data into multip
  - the ram and which stage is it in 
  - the ram itself which ram it is 
  - capturing the number of samples that have already gone through
-these three are of utmost importance the first two manage how and where the data goes through the last one is the control knob about how the data goes through this to control this we would need to implement a mux that can pipeline the data as well. I implemented this by making it a seperated ram generator block 
+these three are of utmost importance the first two manage how and where the data goes through the last one is the control knob about how the data goes through this to control this we would need to implement a mux that can pipeline the data as well. I implemented this by making it a mux logic where ram outputs and inputs connect to different stage inputs with a mux logic. Other than that there is also the concern of reference batched which I will be making 
 
 BIT_PACK.v
 - clk - wire

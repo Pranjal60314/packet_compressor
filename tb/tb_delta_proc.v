@@ -13,7 +13,7 @@ module delta_processing_tb;
     );      
                                                                                 
     initial begin
-        $dumpfile("logs/dump.vcd");
+        $dumpfile("logs/tb_delta_proc_dump.vcd");
         $dumpvars(0, delta_processing_tb);
 
         $display("=== STARTING DELTA PROCESSING TESTBENCH ===");
