@@ -6,7 +6,7 @@ module top_level_tb;
     parameter ADDR_WIDTH     = 10;
     parameter PACKAGE_SIZE   = 4;
                                    
-    localparam FILE_PATH     = "/home/pythonofapollo/WorkSpace/Active/AtmoLITE_packet_compressor/build/telemetry_test/AMT00103_raw.bin"; 
+    localparam FILE_PATH     = "/home/pythonofapollo/WorkSpace/Active/packet_compressor/build/telemetry_test/AMT00103_raw.bin"; 
     localparam TOTAL_SAMPLES = 160;
                                                                                 
     reg                    clk;
