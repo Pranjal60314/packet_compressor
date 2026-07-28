@@ -5,55 +5,27 @@ import verilog_sim as vs
 
             
 def print_help():
-    print("\n" + "=" * 78)
-    print("                 PACKET COMPRESSOR HARDWARE SHELL")
-    print("=" * 78)
+    print("""
+Usage: <command> [options]
 
-    print("\n GENERAL COMMANDS")
-    print("  help")
-    print("      Display this help menu.")
-    print()
-    print("  exit | quit")
-    print("      Close the interactive shell.")
-    print()
-    print("  clean")
-    print("      Remove generated simulation binaries, waveforms and log files.")
-    print()
+Commands:
+  help                    Show this menu.
+  list                    List available testbenches.
+  clean                   Remove build artifacts, logs, and waveforms.
+  exit, quit              Exit the shell.
 
-    print(" RTL SIMULATION")
-    print("  tb <tb_name.v> [rtl_sources...]")
-    print("      Compile and simulate a specific testbench.")
-    print("      If no RTL sources are specified, all RTL modules are compiled.")
-    print()
-    print("      Example:")
-    print("          tb tb_encoder.v")
-    print("          tb tb_encoder.v encoder.v ram.v")
-    print()
-    print("  show <tb_name.v>")
-    print("      Open the waveform generated for a testbench using GTKWave.")
-    print("      Example:")
-    print("          show tb_encoder.v")
-    print()
-
-    print(" SOFTWARE BENCHMARKING")
-    print("  benchmark")
-    print("      Run the reference C implementation against the configured")
-    print("      telemetry datasets and generate compression statistics.")
-    print("      Results are written to:")
-    print("          logs/python_sim_log.txt")
-    print("          logs/iteration_profiles.csv")
-    print()
-
-    print(" DATASET MANAGEMENT")
-    print("  download")
-    print("      Download the configured telemetry datasets and parse them")
-    print("      into binary files suitable for benchmarking.")
-    print()
-
-    print(" INFORMATION")
-    print("  list")
-    print("      List all available testbenches present in the tb directory.")
-    print()
+  tb <tb.v> [rtl...]      Compile and run simulation.
+                          Examples:
+                            tb tb_encoder.v
+                            tb tb_encoder.v encoder.v ram.v
+  show <tb.v>             Open simulation waveform in GTKWave.
+                          Example:
+                            show tb_encoder.v
+  benchmark               Run C reference model against dataset.
+                          Logs: logs/python_sim_log.txt
+                                logs/iteration_profiles.csv
+  download                Fetch and parse telemetry datasets.
+""")
 
 
 def interactive_module():

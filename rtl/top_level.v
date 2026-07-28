@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module top_level #(
-    parameter ADDR_WIDTH = 10,
+    parameter ADDR_WIDTH  = 10,
     parameter SAMPLE_SIZE = 16,
     parameter PACKAGE_SIZE = 4
 )(
@@ -39,6 +39,13 @@ module top_level #(
     reg [ADDR_WIDTH-1:0] samples_loaded;
     reg [ADDR_WIDTH-1:0] samples_estimated;
     reg [ADDR_WIDTH-1:0] samples_encoded;
+    reg [ADDR_WIDTH-1:0] batch_count;
+    reg [ADDR_WIDTH-1:0] current_batch_sample_cnt;
+    reg                  is_reference_batch;
+
+    // Stage 2 evaluation control registers
+    reg [ADDR_WIDTH-1:0] stg2_start_addr;
+    reg [3:0]            stg2_eval_size;
 
     // Rotating IDs per stage: 0 = RAM_A, 1 = RAM_B, 2 = RAM_C
     reg [1:0] stage1_ram_id;
@@ -47,7 +54,7 @@ module top_level #(
 
     // Reference context sample storage
     reg [SAMPLE_SIZE-1:0] prev_sample_reg;
-    reg [ADDR_WIDTH-1:0] package_sample_counter;
+    reg [ADDR_WIDTH-1:0]  package_sample_counter;
 
     // Synchronized pipeline stage controllers
     reg        stg1_start, stg2_start, stg3_start;
@@ -60,17 +67,17 @@ module top_level #(
     // Stage 1 Delta Loading control lines
     reg  [ADDR_WIDTH-1:0] stg1_ram_addr;
     wire [SAMPLE_SIZE-1:0] stg1_ram_din;
-    reg                   stg1_ram_we;
+    reg                    stg1_ram_we;
 
     // Interconnect wires out of Submodules
     wire [ADDR_WIDTH-1:0] stg2_ram_addr;
     wire [ADDR_WIDTH-1:0] stg3_ram_addr;
 
     // Individual RAM Interface Signals
-    wire [ADDR_WIDTH-1:0] ramA_addr, ramB_addr, ramC_addr;
+    wire [ADDR_WIDTH-1:0]  ramA_addr, ramB_addr, ramC_addr;
     wire [SAMPLE_SIZE-1:0] ramA_din,  ramB_din,  ramC_din;
     wire [SAMPLE_SIZE-1:0] ramA_dout, ramB_dout, ramC_dout;
-    wire                  ramA_we,   ramB_we,   ramC_we;
+    wire                   ramA_we,   ramB_we,   ramC_we;
 
     // ------------------------------------------------------------------------
     // Explicit RAM Instantiations (RAM A, RAM B, RAM C)
@@ -133,6 +140,8 @@ module top_level #(
     wire [SAMPLE_SIZE-1:0] stg3_ram_dout = (stage3_ram_id == 2'd0) ? ramA_dout :
                                            (stage3_ram_id == 2'd1) ? ramB_dout : ramC_dout;
 
+    wire is_first_sample_in_batch = (stg1_ram_addr == 0);
+
     // ------------------------------------------------------------------------
     // Submodule Connections
     // ------------------------------------------------------------------------
@@ -144,11 +153,13 @@ module top_level #(
         .encoded_delta(stg1_delta_out)
     );
 
-    assign stg1_ram_din = (package_sample_counter == 0) ? in_buf_data : stg1_delta_out;
+    assign stg1_ram_din = (is_reference_batch && is_first_sample_in_batch) 
+                          ? in_buf_data 
+                          : stg1_delta_out;
 
     wire [7:0] stg2_k_calculated;
     wire [3:0] k_est_mem_addr;
-    assign stg2_ram_addr = { {(ADDR_WIDTH-4){1'b0}}, k_est_mem_addr };
+    assign stg2_ram_addr = stg2_start_addr + { {(ADDR_WIDTH-4){1'b0}}, k_est_mem_addr };
 
     k_estimation #(
         .SAMPLE_SIZE(SAMPLE_SIZE)
@@ -156,8 +167,8 @@ module top_level #(
         .clk       (clk),
         .rst_n     (rst_n),
         .start     (stg2_start),
-        .block_size(batch_size[3:0]),
-        .start_addr(4'd0), 
+        .block_size(stg2_eval_size),
+        .start_addr(stg2_start_addr), 
         .done      (stg2_done),
         .optimal_k (stg2_k_calculated),
         .min_length(),
@@ -217,9 +228,14 @@ module top_level #(
             samples_estimated      <= 0;
             samples_encoded        <= 0;
             package_sample_counter <= 0;
+            batch_count            <= 0;
+            current_batch_sample_cnt <= 0;
+            is_reference_batch     <= 1'b0;
+
+            stg2_start_addr        <= 0;
+            stg2_eval_size         <= 0;
 
             prev_sample_reg        <= 0;
-
             global_flush_en        <= 1'b0;
             
             stage1_ram_id          <= 2'd0;
@@ -237,57 +253,80 @@ module top_level #(
             stg1_ram_we            <= 1'b0;
             stg1_ram_addr          <= 0;
 
+            optimal_k_ping_pong[0] <= 8'd0;
+            optimal_k_ping_pong[1] <= 8'd0;
+            optimal_k_ping_pong[2] <= 8'd0;
+
         end else begin
             stg1_start      <= 1'b0;
             stg2_start      <= 1'b0;
             stg3_start      <= 1'b0;
             global_flush_en <= 1'b0;
 
+            // Ping-pong optimal k storage handler
             if (stg2_done) begin
                 stg2_busy <= 1'b0;
                 optimal_k_ping_pong[stage2_ram_id] <= stg2_k_calculated;
             end
-            if (stg3_done) stg3_busy <= 1'b0;
+            if (stg3_done) begin
+                stg3_busy <= 1'b0;
+            end
 
             case (state)
                 IDLE: begin
                     if (packet_start) begin
-                        samples_loaded         <= 0;
-                        samples_estimated      <= 0;
-                        samples_encoded        <= 0;
-                        package_sample_counter <= 0;
-                        in_buf_addr            <= 0;
+                        samples_loaded           <= 0;
+                        samples_estimated        <= 0;
+                        samples_encoded          <= 0;
+                        package_sample_counter   <= 0;
+                        batch_count              <= 0;
+                        current_batch_sample_cnt <= 0;
+                        is_reference_batch       <= 1'b1;
+                        in_buf_addr              <= 0;
                         
-                        stage1_ram_id          <= 2'd0;
-                        stage2_ram_id          <= 2'd1;
-                        stage3_ram_id          <= 2'd2;
+                        stage1_ram_id            <= 2'd0;
+                        stage2_ram_id            <= 2'd1;
+                        stage3_ram_id            <= 2'd2;
                         
-                        stg1_busy              <= 1'b1;
-                        stg1_ram_addr          <= 0;
-                        stg1_ram_we            <= 1'b1;
-                        state                  <= FILL_RAM_0;
+                        stg1_busy                <= 1'b1;
+                        stg1_ram_addr            <= 0;
+                        stg1_ram_we              <= 1'b1;
+                        state                    <= FILL_RAM_0;
                     end
                 end
 
                 FILL_RAM_0: begin
                     if (stg1_ram_we) begin
-                        prev_sample_reg <= in_buf_data;
-                        stg1_ram_addr   <= stg1_ram_addr + 1'b1;
-                        in_buf_addr     <= in_buf_addr + 1'b1;
-                        samples_loaded  <= samples_loaded + 1'b1;
+                        prev_sample_reg          <= in_buf_data;
+                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
+                        in_buf_addr              <= in_buf_addr + 1'b1;
+                        samples_loaded           <= samples_loaded + 1'b1;
+                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
                         
-                        package_sample_counter <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
+                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
                         
-                        if ((samples_loaded + 1'b1) % batch_size == 0) begin
+                        if (current_batch_sample_cnt + 1'b1 == batch_size) begin
                             stg1_ram_we <= 1'b0;
                             stg1_busy   <= 1'b0;
                         end
 
                     end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
+                        if (is_reference_batch) begin
+                            stg2_eval_size  <= batch_size[3:0] - 1'b1;
+                            stg2_start_addr <= 10'd1;
+                        end else begin
+                            stg2_eval_size  <= batch_size[3:0];
+                            stg2_start_addr <= 10'd0;
+                        end
+
                         stage3_ram_id <= stage2_ram_id;
                         stage2_ram_id <= stage1_ram_id;
                         stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
                         
+                        batch_count <= batch_count + 1'b1;
+                        is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
+
+                        current_batch_sample_cnt <= 0;
                         stg1_ram_addr <= 0;
                         stg1_ram_we   <= 1'b1;
                         stg1_busy     <= 1'b1;
@@ -299,25 +338,38 @@ module top_level #(
 
                 FILL_RAM_1: begin
                     if (stg1_ram_we) begin
-                        prev_sample_reg <= in_buf_data;
-                        stg1_ram_addr   <= stg1_ram_addr + 1'b1;
-                        in_buf_addr     <= in_buf_addr + 1'b1;
-                        samples_loaded  <= samples_loaded + 1'b1;
+                        prev_sample_reg          <= in_buf_data;
+                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
+                        in_buf_addr              <= in_buf_addr + 1'b1;
+                        samples_loaded           <= samples_loaded + 1'b1;
+                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
                         
-                        package_sample_counter <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
+                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
                         
-                        if ((samples_loaded + 1'b1) % batch_size == 0) begin
+                        if (current_batch_sample_cnt + 1'b1 == batch_size) begin
                             stg1_ram_we <= 1'b0;
                             stg1_busy   <= 1'b0;
                         end
 
                     end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
                         samples_estimated <= samples_estimated + batch_size;
-                        
+
+                        if (is_reference_batch) begin
+                            stg2_eval_size  <= batch_size[3:0] - 1'b1;
+                            stg2_start_addr <= 10'd1;
+                        end else begin
+                            stg2_eval_size  <= batch_size[3:0];
+                            stg2_start_addr <= 10'd0;
+                        end
+
                         stage3_ram_id <= stage2_ram_id;
                         stage2_ram_id <= stage1_ram_id;
                         stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
                         
+                        batch_count <= batch_count + 1'b1;
+                        is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
+
+                        current_batch_sample_cnt <= 0;
                         stg1_ram_addr <= 0;
                         stg1_ram_we   <= 1'b1;
                         stg1_busy     <= 1'b1;
@@ -331,14 +383,15 @@ module top_level #(
 
                 STEADY_RUN: begin
                     if (stg1_ram_we) begin
-                        prev_sample_reg <= in_buf_data;
-                        stg1_ram_addr   <= stg1_ram_addr + 1'b1;
-                        in_buf_addr     <= in_buf_addr + 1'b1;
-                        samples_loaded  <= samples_loaded + 1'b1;
+                        prev_sample_reg          <= in_buf_data;
+                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
+                        in_buf_addr              <= in_buf_addr + 1'b1;
+                        samples_loaded           <= samples_loaded + 1'b1;
+                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
                         
-                        package_sample_counter <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
+                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
                         
-                        if ((samples_loaded + 1'b1) % batch_size == 0 || samples_loaded + 1'b1 >= packet_sample_count) begin
+                        if ((current_batch_sample_cnt + 1'b1 == batch_size) || (samples_loaded + 1'b1 >= packet_sample_count)) begin
                             stg1_ram_we <= 1'b0;
                             stg1_busy   <= 1'b0;
                         end
@@ -357,10 +410,22 @@ module top_level #(
                             stg3_busy     <= 1'b1;
                             state         <= DRAIN_STAGE1;
                         end else begin
+                            if (is_reference_batch) begin
+                                stg2_eval_size  <= batch_size[3:0] - 1'b1;
+                                stg2_start_addr <= 10'd1;
+                            end else begin
+                                stg2_eval_size  <= batch_size[3:0];
+                                stg2_start_addr <= 10'd0;
+                            end
+
                             stage3_ram_id <= stage2_ram_id;
                             stage2_ram_id <= stage1_ram_id;
                             stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
                             
+                            batch_count <= batch_count + 1'b1;
+                            is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
+
+                            current_batch_sample_cnt <= 0;
                             stg1_ram_addr <= 0;
                             stg1_ram_we   <= 1'b1;
                             stg1_busy     <= 1'b1;
