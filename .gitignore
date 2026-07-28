@@ -2,4 +2,7 @@ test_data.h
 telemetry_test/
 hello.txt
 _pycache_
+.gitignore
+.gitattributes
+
 
