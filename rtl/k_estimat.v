@@ -66,6 +66,8 @@ module k_estimation #(
                     for (k = 0; k < SAMPLE_SIZE; k = k + 1) begin
                         comp_len[k] <= comp_len[k] + step_cost[k];
                     end
+
+                    $display("[K_ESTIMATOR] Memory Data: %h", mem_data);
                     
                     if (index_counter >= block_size - 1'b1) begin
                         state <= COMPARE;

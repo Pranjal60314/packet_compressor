@@ -81,14 +81,13 @@ module encoder #(
                     end
                 end
 
-                // FIX 2 & 3: Added packer_ready check, updated count to 8 bits, and added transition to SETUP_READ
                 PACK_K: begin
                     if (packer_ready) begin
                         pack_bits  <= {24'b0, optimal_k};
-                        pack_count <= 6'd8; // 8-bit k header
+                        pack_count <= 6'd8; // 8-bit k header____________________________________________________
                         pack_en    <= 1'b1;
                         state      <= SETUP_READ;
-                        $display("[ENCODER] PACKING OPTIMAL_K: %8b PACK_COUNT: %4d\n",pack_bits,pack_count);
+                        $display("[ENCODER] PACKING OPTIMAL_K: %2d PACK_COUNT: %4d\n",optimal_k,pack_count);
                     end
                 end
 
@@ -99,7 +98,6 @@ module encoder #(
 
                 STREAM: begin
                     if (packer_ready) begin
-                        $display("[ENCODER] PACKING BEGINS: \n");
                         if (!anomaly_second_half) begin
                             pack_en <= 1'b1;
 

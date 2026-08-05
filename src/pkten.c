@@ -40,15 +40,17 @@ void encoder(const uint16_t *input_buffer,
     uint16_t local_mapped_values[block_size];
     uint16_t track_sample = *last_sample;
                                       
-    for (int i = 0; i < block_size; i++) {
+for (int i = 0; i < block_size; i++) {
         if (is_reference && i == 0) {
             local_mapped_values[i] = input_buffer[i];
             track_sample = input_buffer[i];
-            printf("[ %1d ] REFERENCE BYTE: %8d  DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i,input_buffer[i], local_mapped_values[i], input_buffer[i]);
+            printf("[ %1d ] REFERENCE BYTE: 0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
+                   i, input_buffer[i], local_mapped_values[i], input_buffer[i]);
         } else {
             local_mapped_values[i] = delta_processing(track_sample, input_buffer[i]);
             track_sample = input_buffer[i]; 
-            printf("[ %1d ] REGULAR BYTE: %8d   DELTA MAPPED VALUE: %16b  INPUT VALUE: %16b \n", i,input_buffer[i], local_mapped_values[i], input_buffer[i]);                          
+            printf("[ %1d ] REGULAR BYTE:   0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
+                   i, input_buffer[i], local_mapped_values[i], input_buffer[i]);                          
         }
     }
 

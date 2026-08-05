@@ -1,87 +1,83 @@
 `timescale 1ns / 1ps
 
 module top_level #(
-    parameter ADDR_WIDTH  = 10,
-    parameter SAMPLE_SIZE = 16,
+    parameter ADDR_WIDTH   = 10,
+    parameter SAMPLE_SIZE  = 16,
     parameter PACKAGE_SIZE = 4
 )(
     input  wire                    clk,
     input  wire                    rst_n,
 
-    // Input Control Interface
-    input  wire                    packet_start,        // Assert to begin a full hardware Packet process
-    input  wire [ADDR_WIDTH-1:0]   packet_sample_count, // Total samples in the incoming buffer packet
-    input  wire [ADDR_WIDTH-1:0]   batch_size,          // Size of 1 Batch (e.g. 16 samples)
-    input  wire [ADDR_WIDTH-1:0]   package_size,        // Samples count per reference sample distance
+                              
+    input  wire                    packet_start,                                                         
+    input  wire [ADDR_WIDTH-1:0]   packet_sample_count,                                               
+    input  wire [ADDR_WIDTH-1:0]   batch_size,                                              
+    input  wire [ADDR_WIDTH-1:0]   package_size,                                                      
     
-    // External Input Port Interfacing
+                                      
     output reg  [ADDR_WIDTH-1:0]   in_buf_addr,
     input  wire [SAMPLE_SIZE-1:0]   in_buf_data,
     
-    // Master Packed Stream Output
+                                  
     output wire [31:0]             compressed_data,
     output wire                    compressed_we,
     output wire                    pipeline_done
 );
 
-    // States
-    localparam IDLE         = 3'b000;
-    localparam FILL_RAM_0   = 3'b001; // Single-buffer warmup
-    localparam FILL_RAM_1   = 3'b010; // Dual-buffer warmup
-    localparam STEADY_RUN   = 3'b011; // 3-stage processing steady pipeline 
-    localparam DRAIN_STAGE1 = 3'b100; // Emptying the pipeline stages
-    localparam DRAIN_STAGE2 = 3'b101; 
-    localparam GLOBAL_FLUSH = 3'b110;
+                                         
+    reg [1:0] stage1_ram_id;
+    reg [1:0] stage2_ram_id;
+    reg [1:0] stage3_ram_id;
 
-    reg [2:0] state;
+                                             
+    reg       stg1_done_pulse;
+    reg [1:0] s1_handshake_ram_id;
+    reg       s1_handshake_ref_flag;
 
-    // Track total batch/sample boundaries
+    reg       stg2_done_pulse;
+    reg [1:0] s2_handshake_ram_id;
+
+                                      
     reg [ADDR_WIDTH-1:0] samples_loaded;
-    reg [ADDR_WIDTH-1:0] samples_estimated;
     reg [ADDR_WIDTH-1:0] samples_encoded;
     reg [ADDR_WIDTH-1:0] batch_count;
     reg [ADDR_WIDTH-1:0] current_batch_sample_cnt;
     reg                  is_reference_batch;
 
-    // Stage 2 evaluation control registers
+                                           
     reg [ADDR_WIDTH-1:0] stg2_start_addr;
     reg [3:0]            stg2_eval_size;
 
-    // Rotating IDs per stage: 0 = RAM_A, 1 = RAM_B, 2 = RAM_C
-    reg [1:0] stage1_ram_id;
-    reg [1:0] stage2_ram_id;
-    reg [1:0] stage3_ram_id;
-
-    // Reference context sample storage
+                                       
     reg [SAMPLE_SIZE-1:0] prev_sample_reg;
     reg [ADDR_WIDTH-1:0]  package_sample_counter;
 
-    // Synchronized pipeline stage controllers
+                         
     reg        stg1_start, stg2_start, stg3_start;
     wire       stg2_done, stg3_done;
     reg        stg1_busy, stg2_busy, stg3_busy;
 
-    // Optimal K storage context per stage
+                                               
     reg [7:0]  optimal_k_ping_pong [0:2];
 
-    // Stage 1 Delta Loading control lines
-    reg  [ADDR_WIDTH-1:0] stg1_ram_addr;
+                                          
+    reg  [ADDR_WIDTH-1:0]  stg1_ram_addr;
     wire [SAMPLE_SIZE-1:0] stg1_ram_din;
     reg                    stg1_ram_we;
 
-    // Interconnect wires out of Submodules
+                                           
     wire [ADDR_WIDTH-1:0] stg2_ram_addr;
     wire [ADDR_WIDTH-1:0] stg3_ram_addr;
 
-    // Individual RAM Interface Signals
+                                       
     wire [ADDR_WIDTH-1:0]  ramA_addr, ramB_addr, ramC_addr;
     wire [SAMPLE_SIZE-1:0] ramA_din,  ramB_din,  ramC_din;
     wire [SAMPLE_SIZE-1:0] ramA_dout, ramB_dout, ramC_dout;
     wire                   ramA_we,   ramB_we,   ramC_we;
 
-    // ------------------------------------------------------------------------
-    // Explicit RAM Instantiations (RAM A, RAM B, RAM C)
-    // ------------------------------------------------------------------------
+                                                                               
+                                                        
+                                                                               
     ram #(
         .SAMPLE_SIZE(SAMPLE_SIZE),
         .ADDR_WIDTH(ADDR_WIDTH)
@@ -115,9 +111,9 @@ module top_level #(
         .dout(ramC_dout)
     );
 
-    // ------------------------------------------------------------------------
-    // Direct Signal Multiplexing Based on Stage ID (0=A, 1=B, 2=C)
-    // ------------------------------------------------------------------------
+                                                                               
+                                                                   
+                                                                               
     assign ramA_we   = (stage1_ram_id == 2'd0) ? stg1_ram_we   : 1'b0;
     assign ramA_addr = (stage1_ram_id == 2'd0) ? stg1_ram_addr :
                        (stage2_ram_id == 2'd0) ? stg2_ram_addr : stg3_ram_addr;
@@ -133,7 +129,7 @@ module top_level #(
                        (stage2_ram_id == 2'd2) ? stg2_ram_addr : stg3_ram_addr;
     assign ramC_din  = (stage1_ram_id == 2'd2) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
 
-    // Mux RAM Dout outputs into stage read ports
+                                                 
     wire [SAMPLE_SIZE-1:0] stg2_ram_dout = (stage2_ram_id == 2'd0) ? ramA_dout :
                                            (stage2_ram_id == 2'd1) ? ramB_dout : ramC_dout;
 
@@ -142,9 +138,9 @@ module top_level #(
 
     wire is_first_sample_in_batch = (stg1_ram_addr == 0);
 
-    // ------------------------------------------------------------------------
-    // Submodule Connections
-    // ------------------------------------------------------------------------
+                                                                               
+                            
+                                                                               
     wire [SAMPLE_SIZE-1:0] stg1_delta_out;
     
     delta_processing delta_unit (
@@ -214,251 +210,225 @@ module top_level #(
         .packer_ready(packer_ready_wire)
     );
 
-    // ------------------------------------------------------------------------
-    // Control Flow State Machine
-    // ------------------------------------------------------------------------
-    assign pipeline_done = (state == IDLE) && !stg1_busy;
+                                                              
+    assign pipeline_done = !stg1_busy && !stg2_busy && !stg3_busy;
+
+                                                                               
+                                                                     
+                                                                               
+    localparam S1_IDLE = 1'b0, S1_RUN = 1'b1;
+    reg s1_state;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state                  <= IDLE;
-            in_buf_addr            <= 0;
-
-            samples_loaded         <= 0;
-            samples_estimated      <= 0;
-            samples_encoded        <= 0;
-            package_sample_counter <= 0;
-            batch_count            <= 0;
-            current_batch_sample_cnt <= 0;
-            is_reference_batch     <= 1'b0;
-
-            stg2_start_addr        <= 0;
-            stg2_eval_size         <= 0;
-
-            prev_sample_reg        <= 0;
-            global_flush_en        <= 1'b0;
-            
-            stage1_ram_id          <= 2'd0;
-            stage2_ram_id          <= 2'd1;
-            stage3_ram_id          <= 2'd2;
-
-            stg1_start             <= 1'b0;
-            stg2_start             <= 1'b0;
-            stg3_start             <= 1'b0;
-
-            stg1_busy              <= 1'b0;
-            stg2_busy              <= 1'b0;
-            stg3_busy              <= 1'b0;
-            
-            stg1_ram_we            <= 1'b0;
-            stg1_ram_addr          <= 0;
-
-            optimal_k_ping_pong[0] <= 8'd0;
-            optimal_k_ping_pong[1] <= 8'd0;
-            optimal_k_ping_pong[2] <= 8'd0;
-
+            s1_state                <= S1_IDLE;
+            in_buf_addr             <= 0;
+            samples_loaded          <= 0;
+            current_batch_sample_cnt<= 0;
+            batch_count             <= 0;
+            package_sample_counter  <= 0;
+            is_reference_batch      <= 1'b1;
+            prev_sample_reg         <= 0;
+            stage1_ram_id           <= 2'd0;
+            stg1_ram_addr           <= 0;
+            stg1_ram_we             <= 1'b0;
+            stg1_busy               <= 1'b0;
+            stg1_done_pulse         <= 1'b0;
+            s1_handshake_ram_id     <= 2'd0;
+            s1_handshake_ref_flag   <= 1'b0;
         end else begin
-            stg1_start      <= 1'b0;
+            stg1_done_pulse <= 1'b0;
+
+            case (s1_state)
+                S1_IDLE: begin
+                    if (packet_start) begin
+                        samples_loaded           <= 0;
+                        current_batch_sample_cnt <= 0;
+                        batch_count              <= 0;
+                        package_sample_counter   <= 0;
+                        is_reference_batch       <= 1'b1;
+                        in_buf_addr              <= 0;
+                        stage1_ram_id            <= 2'd0;
+                        
+                        stg1_ram_addr            <= 0;
+                        stg1_ram_we              <= 1'b1;
+                        stg1_busy                <= 1'b1;
+                        s1_state                 <= S1_RUN;
+                    end else if (samples_loaded < packet_sample_count) begin
+                        stg1_ram_addr            <= 0;
+                        stg1_ram_we              <= 1'b1;
+                        stg1_busy                <= 1'b1;
+                        s1_state                 <= S1_RUN;
+                    end else begin
+                        stg1_busy                <= 1'b0;
+                    end
+                end
+
+                S1_RUN: begin
+                    if (stg1_ram_we) begin
+                        prev_sample_reg          <= in_buf_data;
+                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
+                        in_buf_addr              <= in_buf_addr + 1'b1;
+                        samples_loaded           <= samples_loaded + 1'b1;
+                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
+                        //$display("[STAGE 1]  Sample %0d written to RAM ID %0d at address %0d: 0x%b as 0x%b\n", samples_loaded, stage1_ram_id, stg1_ram_addr, in_buf_data, stg1_ram_din);
+
+                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
+
+                        // Batch completed or Packet Boundary reached
+                        if ((current_batch_sample_cnt + 1'b1 == batch_size) || (samples_loaded + 1'b1 >= packet_sample_count)) begin
+                            stg1_ram_we           <= 1'b0;
+                                                                  
+                            stg1_done_pulse       <= 1'b1;
+                            s1_handshake_ram_id   <= stage1_ram_id;
+                            s1_handshake_ref_flag <= is_reference_batch;
+
+                            // Update batch and reference state context
+                            batch_count           <= batch_count + 1'b1;
+                            is_reference_batch    <= ((batch_count + 1'b1) % package_size == 0);
+                            current_batch_sample_cnt <= 0;
+
+                            // Rotate Stage 1 to next available buffer slot
+                            stage1_ram_id         <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
+                            
+                            s1_state              <= S1_IDLE;
+                        end
+                    end
+                end
+            endcase
+        end
+    end
+
+                                                                               
+                                                      
+                                                                               
+    // ------------------------------------------------------------------------
+    // FSM 2: Stage 2 Controller (K-Estimation Engine)
+    // ------------------------------------------------------------------------
+    localparam S2_IDLE     = 2'b00, 
+               S2_SETUP    = 2'b01, 
+               S2_PRE_READ = 2'b10, 
+               S2_RUN      = 2'b11;
+               
+    reg [1:0] s2_state;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            s2_state              <= S2_IDLE;
+            stage2_ram_id         <= 2'd1;
+            stg2_start_addr       <= 0;
+            stg2_eval_size        <= 0;
+            stg2_start            <= 1'b0;
+            stg2_busy             <= 1'b0;
+            stg2_done_pulse       <= 1'b0;
+            s2_handshake_ram_id   <= 2'd0;
+            optimal_k_ping_pong[0]<= 8'd0;
+            optimal_k_ping_pong[1]<= 8'd0;
+            optimal_k_ping_pong[2]<= 8'd0;
+        end else begin
             stg2_start      <= 1'b0;
+            stg2_done_pulse <= 1'b0;
+
+            case (s2_state)
+                S2_IDLE: begin
+                    if (stg1_done_pulse) begin
+                        // 1. Instantly claim RAM ownership so MUX routes stg2_ram_addr
+                        stage2_ram_id   <= s1_handshake_ram_id;
+                        stg2_busy       <= 1'b1;
+
+                        // 2. Fix off-by-one: Reference batch evaluates (batch_size - 1) delta samples starting at index 1
+                        if (s1_handshake_ref_flag) begin
+                            stg2_eval_size  <= batch_size[3:0] - 1'b1;
+                            stg2_start_addr <= 10'd1;
+                        end else begin
+                            stg2_eval_size  <= batch_size[3:0];
+                            stg2_start_addr <= 10'd0;
+                        end
+
+                        s2_state <= S2_SETUP;
+                    end else begin
+                        stg2_busy <= 1'b0;
+                    end
+                end
+
+                S2_SETUP: begin
+                    // Cycle 1: Let the MUX select stage2_ram_id and present stg2_start_addr to BRAM
+                    s2_state <= S2_PRE_READ;
+                end
+
+                S2_PRE_READ: begin
+                    // Cycle 2: BRAM output latches valid data for stg2_start_addr. Trigger k_estimator now!
+                    stg2_start <= 1'b1;
+                    s2_state   <= S2_RUN;
+                end
+
+                S2_RUN: begin
+                    if (stg2_done) begin
+                        optimal_k_ping_pong[stage2_ram_id] <= stg2_k_calculated;
+                        
+                        // Handshake completion to FSM 3
+                        stg2_done_pulse     <= 1'b1;
+                        s2_handshake_ram_id <= stage2_ram_id;
+
+                        s2_state            <= S2_IDLE;
+                    end
+                end
+            endcase
+        end
+    end
+
+                                                                               
+                                                                    
+                                                                               
+    localparam S3_IDLE = 2'b00, S3_RUN = 2'b01, S3_FLUSH = 2'b10;
+    reg [1:0] s3_state;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            s3_state        <= S3_IDLE;
+            stage3_ram_id   <= 2'd2;
+            samples_encoded <= 0;
+            stg3_start      <= 1'b0;
+            stg3_busy       <= 1'b0;
+            global_flush_en <= 1'b0;
+        end else begin
             stg3_start      <= 1'b0;
             global_flush_en <= 1'b0;
 
-            // Ping-pong optimal k storage handler
-            if (stg2_done) begin
-                stg2_busy <= 1'b0;
-                optimal_k_ping_pong[stage2_ram_id] <= stg2_k_calculated;
-            end
-            if (stg3_done) begin
-                stg3_busy <= 1'b0;
-            end
-
-            case (state)
-                IDLE: begin
+            case (s3_state)
+                S3_IDLE: begin
                     if (packet_start) begin
-                        samples_loaded           <= 0;
-                        samples_estimated        <= 0;
-                        samples_encoded          <= 0;
-                        package_sample_counter   <= 0;
-                        batch_count              <= 0;
-                        current_batch_sample_cnt <= 0;
-                        is_reference_batch       <= 1'b1;
-                        in_buf_addr              <= 0;
-                        
-                        stage1_ram_id            <= 2'd0;
-                        stage2_ram_id            <= 2'd1;
-                        stage3_ram_id            <= 2'd2;
-                        
-                        stg1_busy                <= 1'b1;
-                        stg1_ram_addr            <= 0;
-                        stg1_ram_we              <= 1'b1;
-                        state                    <= FILL_RAM_0;
-                    end
-                end
-
-                FILL_RAM_0: begin
-                    if (stg1_ram_we) begin
-                        prev_sample_reg          <= in_buf_data;
-                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
-                        in_buf_addr              <= in_buf_addr + 1'b1;
-                        samples_loaded           <= samples_loaded + 1'b1;
-                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
-                        
-                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
-                        
-                        if (current_batch_sample_cnt + 1'b1 == batch_size) begin
-                            stg1_ram_we <= 1'b0;
-                            stg1_busy   <= 1'b0;
-                        end
-
-                    end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-                        if (is_reference_batch) begin
-                            stg2_eval_size  <= batch_size[3:0] - 1'b1;
-                            stg2_start_addr <= 10'd1;
-                        end else begin
-                            stg2_eval_size  <= batch_size[3:0];
-                            stg2_start_addr <= 10'd0;
-                        end
-
-                        stage3_ram_id <= stage2_ram_id;
-                        stage2_ram_id <= stage1_ram_id;
-                        stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
-                        
-                        batch_count <= batch_count + 1'b1;
-                        is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
-
-                        current_batch_sample_cnt <= 0;
-                        stg1_ram_addr <= 0;
-                        stg1_ram_we   <= 1'b1;
-                        stg1_busy     <= 1'b1;
-                        stg2_start    <= 1'b1;
-                        stg2_busy     <= 1'b1;
-                        state         <= FILL_RAM_1;
-                    end
-                end
-
-                FILL_RAM_1: begin
-                    if (stg1_ram_we) begin
-                        prev_sample_reg          <= in_buf_data;
-                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
-                        in_buf_addr              <= in_buf_addr + 1'b1;
-                        samples_loaded           <= samples_loaded + 1'b1;
-                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
-                        
-                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
-                        
-                        if (current_batch_sample_cnt + 1'b1 == batch_size) begin
-                            stg1_ram_we <= 1'b0;
-                            stg1_busy   <= 1'b0;
-                        end
-
-                    end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-                        samples_estimated <= samples_estimated + batch_size;
-
-                        if (is_reference_batch) begin
-                            stg2_eval_size  <= batch_size[3:0] - 1'b1;
-                            stg2_start_addr <= 10'd1;
-                        end else begin
-                            stg2_eval_size  <= batch_size[3:0];
-                            stg2_start_addr <= 10'd0;
-                        end
-
-                        stage3_ram_id <= stage2_ram_id;
-                        stage2_ram_id <= stage1_ram_id;
-                        stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
-                        
-                        batch_count <= batch_count + 1'b1;
-                        is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
-
-                        current_batch_sample_cnt <= 0;
-                        stg1_ram_addr <= 0;
-                        stg1_ram_we   <= 1'b1;
-                        stg1_busy     <= 1'b1;
-                        stg2_start    <= 1'b1;
-                        stg2_busy     <= 1'b1;
-                        stg3_start    <= 1'b1;
+                        samples_encoded <= 0;
+                        stg3_busy       <= 1'b0;
+                    end else if (stg2_done_pulse) begin
+                        stage3_ram_id <= s2_handshake_ram_id;
+                        stg3_start    <= 1'b1; // Pulse block encoder start
                         stg3_busy     <= 1'b1;
-                        state         <= STEADY_RUN;
+                        s3_state      <= S3_RUN;
+                    end else begin
+                        stg3_busy     <= 1'b0;
                     end
                 end
 
-                STEADY_RUN: begin
-                    if (stg1_ram_we) begin
-                        prev_sample_reg          <= in_buf_data;
-                        stg1_ram_addr            <= stg1_ram_addr + 1'b1;
-                        in_buf_addr              <= in_buf_addr + 1'b1;
-                        samples_loaded           <= samples_loaded + 1'b1;
-                        current_batch_sample_cnt <= current_batch_sample_cnt + 1'b1;
-                        
-                        package_sample_counter   <= (package_sample_counter + 1'b1 >= package_size) ? 0 : package_sample_counter + 1'b1;
-                        
-                        if ((current_batch_sample_cnt + 1'b1 == batch_size) || (samples_loaded + 1'b1 >= packet_sample_count)) begin
-                            stg1_ram_we <= 1'b0;
-                            stg1_busy   <= 1'b0;
-                        end
-                    
-                    end else if (!stg1_busy && !stg2_busy && !stg3_busy) begin
-                        samples_estimated <= samples_estimated + batch_size;
-                        samples_encoded   <= samples_encoded + batch_size;
-                        
-                        if (samples_loaded >= packet_sample_count) begin
-                            stage3_ram_id <= stage2_ram_id;
-                            stage2_ram_id <= stage1_ram_id;
-                            
-                            stg2_start    <= 1'b1;
-                            stg2_busy     <= 1'b1;
-                            stg3_start    <= 1'b1;
-                            stg3_busy     <= 1'b1;
-                            state         <= DRAIN_STAGE1;
-                        end else begin
-                            if (is_reference_batch) begin
-                                stg2_eval_size  <= batch_size[3:0] - 1'b1;
-                                stg2_start_addr <= 10'd1;
-                            end else begin
-                                stg2_eval_size  <= batch_size[3:0];
-                                stg2_start_addr <= 10'd0;
-                            end
-
-                            stage3_ram_id <= stage2_ram_id;
-                            stage2_ram_id <= stage1_ram_id;
-                            stage1_ram_id <= (stage1_ram_id == 2'd2) ? 2'd0 : stage1_ram_id + 1'b1;
-                            
-                            batch_count <= batch_count + 1'b1;
-                            is_reference_batch <= ((batch_count + 1'b1) % package_size == 0);
-
-                            current_batch_sample_cnt <= 0;
-                            stg1_ram_addr <= 0;
-                            stg1_ram_we   <= 1'b1;
-                            stg1_busy     <= 1'b1;
-                            stg2_start    <= 1'b1;
-                            stg2_busy     <= 1'b1;
-                            stg3_start    <= 1'b1;
-                            stg3_busy     <= 1'b1;
-                        end
-                    end
-                end
-
-                DRAIN_STAGE1: begin
-                    if (!stg2_busy && !stg3_busy) begin
-                        samples_estimated <= samples_estimated + batch_size;
-                        samples_encoded   <= samples_encoded + batch_size;
-                        
-                        stage3_ram_id <= stage2_ram_id;
-                        stg3_start    <= 1'b1;
-                        stg3_busy     <= 1'b1;
-                        state         <= DRAIN_STAGE2;
-                    end
-                end
-
-                DRAIN_STAGE2: begin
-                    if (!stg3_busy) begin
+                S3_RUN: begin
+                    if (stg3_done) begin
                         samples_encoded <= samples_encoded + batch_size;
-                        global_flush_en <= 1'b1;
-                        state           <= GLOBAL_FLUSH;
+
+                        //$display("[STAGE 3]  Block Encoding completed for RAM ID %0d: Samples Encoded = %0d\n", stage3_ram_id, samples_encoded);
+
+                        // Check if final packet batch has been encoded
+                        if (samples_encoded + batch_size >= packet_sample_count) begin
+                            global_flush_en <= 1'b1;                               
+                            s3_state        <= S3_FLUSH;
+                        end else begin
+                            s3_state        <= S3_IDLE;
+                        end
                     end
                 end
 
-                GLOBAL_FLUSH: begin
-                    state <= IDLE;
+                S3_FLUSH: begin
+                    stg3_busy <= 1'b0;
+                    s3_state  <= S3_IDLE;
                 end
             endcase
         end

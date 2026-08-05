@@ -133,3 +133,9 @@ ENCODER
 
 
 Overall the machine is supposed to take a data by giving mem_addr and then as soon as the mem data comes in it combinationally calculates quotient and remainder and accordingly calculates unary bits and length along with the appending a 0 at the end of unary bits. Now however there was always a concern of overflow while the Rice encoding always works great when the data points are not varying by much and are almost always equal however what if because of anomalical values a encoded byte exceeded the 32bit limit even when k is a smaller value overall that would cause concern since in one lcock cycle bit_pack can only accept 32 bits at once for this I made an anomaly cycler which stores the remaining anomalical value slowly shifting the overall encoded bytes 32 at a time till they all are out and about this should solve the problem or atleast this seemed to solve the issue during testing however this means that each encoder cycle requires more than a fixed number cycles to complete the encoding that breaks the symmetry and thus during the overall pipeline structure I will have to make toggle switch that makes sure that each ram has completed its own process before proceeding
+
+
+TOP_LEVEL
+
+well I tried to make this using the drain stages and stuff but the flag reset in repeatedly encountering race conditions and causing ussues with the k estimation and encoder furhter down the line as such using three different FSMs and controlling flags would I think be a better choice
+

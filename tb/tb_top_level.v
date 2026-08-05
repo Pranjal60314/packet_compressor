@@ -45,9 +45,10 @@ module top_level_tb;
                                                                                 
     always #5 clk = ~clk;                                    
                                                                                   
-    always @(*) begin
-        in_buf_data = mock_file_buffer[in_buf_addr];
-        $display("Input BUffer data: %b", in_buf_data);
+always @(*) begin
+        in_buf_data = {mock_file_buffer[in_buf_addr][7:0], mock_file_buffer[in_buf_addr][15:8]};
+        
+        //$display("Input Buffer data: %h", in_buf_data);
     end
                                
     initial begin
@@ -112,18 +113,6 @@ module top_level_tb;
             end
         join
     end
-                                             
-    always @(posedge clk) begin
-        if (uut.stg1_ram_we) begin
-            $display("[DELTA PROC] Time: %0t ns | PkgCnt: %0d | PREV: %16b | CURR: %16b | OUT_DELTA: %16b %s",
-                     $time,
-                     uut.package_sample_counter,
-                     uut.delta_unit.previous_x,
-                     uut.delta_unit.current_x,
-                     uut.delta_unit.encoded_delta,
-                     (uut.package_sample_counter == 0) ? "[BYPASSED: RAW REF SAVED]" : "[SAVED TO RAM]"
-            );
-        end
-    end
 
+                                             
 endmodule

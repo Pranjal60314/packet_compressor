@@ -1,13 +1,17 @@
-MAKEFLAGS += --no-print-directory
+ MAKEFLAGS += --no-print-directory
 
-VENV_DIR    ?= .venv
-VENV_PYTHON := $(shell if [ -f "$(VENV_DIR)/bin/python3" ]; then echo "$(VENV_DIR)/bin/python3"; else which python3; fi)
+VENV_DIR := /home/pythonofapollo/WorkSpace/.venv
 
-RUNNER_FILE := build/makefile_configs/run_pipeline.py
+VENV_PYTHON := $(VENV_DIR)/bin/python3
+
+RUNNER_FILE := /home/pythonofapollo/WorkSpace/Active/packet_compressor/build/makefile_configs/run_pipeline.py
+
 
 .PHONY: all test
 
+
 all: test
 
-test:
-	@$(VENV_PYTHON) $(RUNNER_FILE)
+
+test:	
+	@$(VENV_PYTHON) $(RUNNER_FILE) 

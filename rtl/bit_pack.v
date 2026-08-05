@@ -4,30 +4,30 @@ module bit_pack (
     input  wire        clk,
     input  wire        rst_n,
     
-    // Control interface
-    input  wire        pack_en,      // Assert high to pack new bits
-    input  wire        flush_en,     // Assert high to flush remaining bits (end of packet)
+                        
+    input  wire        pack_en,                                     
+    input  wire        flush_en,                                                           
     
-    // Data input
-    input  wire [31:0] bits,         // Up to 32 bits to pack
-    input  wire [5:0]  count,        // Number of valid bits in 'bits' (0 to 32)
+                 
+    input  wire [31:0] bits,                                 
+    input  wire [5:0]  count,                                                   
     
-    // RAM Memory Interface
-    output reg  [31:0] ram_data,     // Data bus to out_ram
-    output reg         ram_we,       // Write enable to out_ram
-    output reg         packer_ready  // Ready to accept new data
+                           
+    output reg  [31:0] ram_data,                           
+    output reg         ram_we,                                 
+    output reg         packer_ready                             
 );
 
-    // -------------------------------------------------------------------------
-    // Internal State Registers
-    // -------------------------------------------------------------------------
+                                                                                
+                               
+                                                                                
     reg [63:0] shifter_reg;
-    reg [6:0]  fill_reg;             // Tracks 0 to 64 bits internally
+    reg [6:0]  fill_reg;                                              
 
-    // -------------------------------------------------------------------------
-    // Step 1: Input Masking
-    // -------------------------------------------------------------------------
-    // Matches C: bits & ((1 << count) - 1)
+                                                                                
+                            
+                                                                                
+                                           
     wire [31:0] clean_bits;
     assign clean_bits = (count == 0)  ? 32'b0 :
                         (count >= 32) ? bits  : 
@@ -47,9 +47,9 @@ module bit_pack (
     assign empty_bits_before_add = 7'd64 - fill_7b;
     assign shift_amount          = empty_bits_before_add - count_7b;
 
-    // -------------------------------------------------------------------------
-    // Step 3: 64-Bit Barrel Shifter Runway
-    // -------------------------------------------------------------------------
+                                                                                
+                                           
+                                                                                
     wire [63:0] clean_bits_64b;
     wire [63:0] shifted_new_bits;
 
@@ -93,9 +93,9 @@ module bit_pack (
 
                 if (next_fill >= 7'd32) begin
 
-                    // Write upper 32-bit word out to memory space
+                                                                  
                     ram_data    <= next_shifter[63:32];
-                    $display("[BIT PACKER] SHIFTER OVERFLOWED [PACKER WRITE] 0x%b\n", next_shifter[63:32]);
+                                                                                                             
                     ram_we      <= 1'b1;
                     
                     // Consume the written word and track remainder fractional bits
@@ -103,7 +103,7 @@ module bit_pack (
                     fill_reg    <= next_fill - 7'd32;
 
                 end else begin
-                    // Not enough bits collected to justify writing out yet
+                                                                           
                     shifter_reg <= next_shifter;
                     fill_reg    <= next_fill;
 

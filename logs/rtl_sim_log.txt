@@ -1,0 +1,291 @@
+
+=== STAGE: Verilog Simulation Run | EXECUTION TIME: 2026-08-05 15:12:55.614227 ===
+/home/pythonofapollo/WorkSpace/Active/packet_compressor/tb/tb_top_level.v:78: Warning: Calling system function $fread() as a task.
+/home/pythonofapollo/WorkSpace/Active/packet_compressor/tb/tb_top_level.v:78:          The functions return value will be ignored.
+VCD info: dumpfile logs/tb_top_level_dump.vcd opened for output.
+Input Buffer data: xxxx
+Input Buffer data: 9c98
+Input Buffer data: 9c1a
+Input Buffer data: 9bb0
+Input Buffer data: 9afa
+Input Buffer data: 9a8b
+Input Buffer data: 9a0c
+Input Buffer data: 99d5
+Input Buffer data: 9975
+Input Buffer data: 98f3
+Input Buffer data: 9848
+Input Buffer data: 980b
+Input Buffer data: 9794
+Input Buffer data: 9732
+Input Buffer data: 96d8
+Input Buffer data: 9678
+Input Buffer data: 95ec
+Input Buffer data: 959d
+Input Buffer data: 9528
+Input Buffer data: 94e7
+[K_ESTIMATOR] Memory Data: 00fb
+Input Buffer data: 94e3
+[K_ESTIMATOR] Memory Data: 00d3
+Input Buffer data: 9429
+[K_ESTIMATOR] Memory Data: 016b
+Input Buffer data: 940d
+[K_ESTIMATOR] Memory Data: 00dd
+Input Buffer data: 935a
+[K_ESTIMATOR] Memory Data: 00fd
+Input Buffer data: 931d
+[K_ESTIMATOR] Memory Data: 006d
+Input Buffer data: 92b0
+[K_ESTIMATOR] Memory Data: 00bf
+Input Buffer data: 928d
+[K_ESTIMATOR] Memory Data: 0103
+Input Buffer data: 9257
+[K_ESTIMATOR] Memory Data: 0155
+Input Buffer data: 922b
+[K_ESTIMATOR] Memory Data: 0079
+Input Buffer data: 91c6
+[K_ESTIMATOR] Memory Data: 00ed
+Input Buffer data: 9168
+[K_ESTIMATOR] Memory Data: 00c3
+Input Buffer data: 914f
+[K_ESTIMATOR] Memory Data: 00b3
+Input Buffer data: 9121
+[K_ESTIMATOR] Memory Data: 00bf
+Input Buffer data: 90c7
+[K_ESTIMATOR] Memory Data: 0117
+OPTIMAL K CALCULATED:   7 MINIMUM LENGTH:    137
+
+Input Buffer data: 90d6
+Input Buffer data: 9040
+Input Buffer data: 9080
+Input Buffer data: 9069
+[ENCODER] PACKING OPTIMAL_K:  7 PACK_COUNT:    0
+
+Input Buffer data: 9040
+Input Buffer data: 8fe1
+Input Buffer data: 8fad
+Input Buffer data: 8f75
+Input Buffer data: 8fa5
+Input Buffer data: 8fa9
+Input Buffer data: 8fcc
+Input Buffer data: 8f87
+Input Buffer data: 8f51
+Input Buffer data: 8ee4
+Input Buffer data: 8f1b
+Input Buffer data: 8f6a
+Input Buffer data: 8f02
+Input Buffer data: 8ef5
+[K_ESTIMATOR] Memory Data: 006e
+Input Buffer data: 8ede
+(Time: 595000 ns) >> PACKED OUT TARGET WORD: 0x00000111011111111111111111111111
+[K_ESTIMATOR] Memory Data: 00b3
+Input Buffer data: 8ed2
+(Time: 605000 ns) >> PACKED OUT TARGET WORD: 0x11111111011111111111111111111111
+[K_ESTIMATOR] Memory Data: 001e
+Input Buffer data: 8eae
+[K_ESTIMATOR] Memory Data: 012b
+Input Buffer data: 8ef1
+[K_ESTIMATOR] Memory Data: 0080
+Input Buffer data: 8ee5
+(Time: 635000 ns) >> PACKED OUT TARGET WORD: 0x10001100010101001111011010111010
+[K_ESTIMATOR] Memory Data: 002d
+Input Buffer data: 8f34
+[K_ESTIMATOR] Memory Data: 0051
+Input Buffer data: 8f6e
+[K_ESTIMATOR] Memory Data: 00bd
+Input Buffer data: 8f41
+[K_ESTIMATOR] Memory Data: 0067
+Input Buffer data: 8f85
+[K_ESTIMATOR] Memory Data: 006f
+Input Buffer data: 8f1f
+[K_ESTIMATOR] Memory Data: 0060
+Input Buffer data: 8f29
+[K_ESTIMATOR] Memory Data: 0008
+Input Buffer data: 8f9e
+[K_ESTIMATOR] Memory Data: 0046
+Input Buffer data: 9078
+[K_ESTIMATOR] Memory Data: 0089
+Input Buffer data: 9003
+[K_ESTIMATOR] Memory Data: 006b
+[K_ESTIMATOR] Memory Data: 00d9
+Input Buffer data: 9035
+OPTIMAL K CALCULATED:   6 MINIMUM LENGTH:    134
+
+Input Buffer data: 905b
+Input Buffer data: 90d8
+Input Buffer data: 90e9
+Input Buffer data: 91a1
+[ENCODER] PACKING OPTIMAL_K:  6 PACK_COUNT:    9
+
+Input Buffer data: 91d1
+Input Buffer data: 9250
+Input Buffer data: 9291
+Input Buffer data: 9351
+Input Buffer data: 93c2
+Input Buffer data: 944a
+(Time: 845000 ns) >> PACKED OUT TARGET WORD: 0x11101000001101010111010101110101
+Input Buffer data: 93af
+Input Buffer data: 94d8
+Input Buffer data: 95b8
+Input Buffer data: 9659
+(Time: 885000 ns) >> PACKED OUT TARGET WORD: 0x01110101011101010111010101110101
+Input Buffer data: 971d
+Input Buffer data: 9766
+Input Buffer data: 97ee
+[K_ESTIMATOR] Memory Data: 0142
+Input Buffer data: 981a
+(Time: 935000 ns) >> PACKED OUT TARGET WORD: 0x01110101011101010111010101110110
+[K_ESTIMATOR] Memory Data: 00e9
+Input Buffer data: 9900
+[K_ESTIMATOR] Memory Data: 0064
+Input Buffer data: 9a03
+[K_ESTIMATOR] Memory Data: 004c
+Input Buffer data: 9aed
+(Time: 965000 ns) >> PACKED OUT TARGET WORD: 0x11001100111101111010101111000000
+[K_ESTIMATOR] Memory Data: 00fa
+Input Buffer data: 9bc0
+[K_ESTIMATOR] Memory Data: 0022
+Input Buffer data: 9c48
+[K_ESTIMATOR] Memory Data: 0170
+Input Buffer data: 9d43
+[K_ESTIMATOR] Memory Data: 0060
+Input Buffer data: 9e0e
+[K_ESTIMATOR] Memory Data: 00fe
+Input Buffer data: 9ece
+[K_ESTIMATOR] Memory Data: 0082
+Input Buffer data: 9f88
+[K_ESTIMATOR] Memory Data: 0180
+Input Buffer data: a01d
+[K_ESTIMATOR] Memory Data: 00e2
+Input Buffer data: a135
+[K_ESTIMATOR] Memory Data: 0110
+Input Buffer data: a1c5
+[K_ESTIMATOR] Memory Data: 0135
+Input Buffer data: a2e3
+[K_ESTIMATOR] Memory Data: 0252
+[K_ESTIMATOR] Memory Data: 01c0
+Input Buffer data: a37e
+OPTIMAL K CALCULATED:   7 MINIMUM LENGTH:    151
+
+Input Buffer data: a427
+Input Buffer data: a4fc
+Input Buffer data: a5d4
+Input Buffer data: a636
+[ENCODER] PACKING OPTIMAL_K:  7 PACK_COUNT:    7
+
+Input Buffer data: a72a
+Input Buffer data: a8a3
+Input Buffer data: a88e
+Input Buffer data: a8d7
+Input Buffer data: aa43
+(Time: 1175000 ns) >> PACKED OUT TARGET WORD: 0x00101101000001111101000010110100
+Input Buffer data: aa85
+Input Buffer data: ab63
+Input Buffer data: ac4f
+(Time: 1205000 ns) >> PACKED OUT TARGET WORD: 0x00101101000010110100001011010000
+Input Buffer data: acd1
+Input Buffer data: ad61
+Input Buffer data: ade0
+(Time: 1235000 ns) >> PACKED OUT TARGET WORD: 0x10110100001011010000101101000010
+Input Buffer data: ae68
+Input Buffer data: aea9
+[K_ESTIMATOR] Memory Data: 0120
+Input Buffer data: af67
+[K_ESTIMATOR] Memory Data: 023c
+Input Buffer data: af80
+(Time: 1285000 ns) >> PACKED OUT TARGET WORD: 0x11010000101101000010101101001011
+[K_ESTIMATOR] Memory Data: 0136
+Input Buffer data: b073
+[K_ESTIMATOR] Memory Data: 0152
+Input Buffer data: b034
+[K_ESTIMATOR] Memory Data: 01aa
+Input Buffer data: b045
+[K_ESTIMATOR] Memory Data: 01b0
+Input Buffer data: b092
+[K_ESTIMATOR] Memory Data: 00c4
+Input Buffer data: b181
+[K_ESTIMATOR] Memory Data: 01e8
+Input Buffer data: b1e3
+[K_ESTIMATOR] Memory Data: 02f2
+Input Buffer data: b198
+[K_ESTIMATOR] Memory Data: 0029
+Input Buffer data: b1e1
+[K_ESTIMATOR] Memory Data: 0092
+Input Buffer data: b217
+[K_ESTIMATOR] Memory Data: 02d8
+Input Buffer data: b1e3
+[K_ESTIMATOR] Memory Data: 0084
+Input Buffer data: b1a0
+[K_ESTIMATOR] Memory Data: 01bc
+Input Buffer data: b163
+[K_ESTIMATOR] Memory Data: 01d8
+[K_ESTIMATOR] Memory Data: 0104
+Input Buffer data: b13c
+OPTIMAL K CALCULATED:   8 MINIMUM LENGTH:    159
+
+Input Buffer data: b195
+Input Buffer data: b169
+Input Buffer data: b10c
+Input Buffer data: b0b8
+[ENCODER] PACKING OPTIMAL_K:  8 PACK_COUNT:    8
+
+Input Buffer data: b0e6
+Input Buffer data: b0e4
+(Time: 1485000 ns) >> PACKED OUT TARGET WORD: 0x00100010011001011110100010001000
+Input Buffer data: b0de
+Input Buffer data: b0a3
+Input Buffer data: b0a9
+Input Buffer data: b0b0
+(Time: 1525000 ns) >> PACKED OUT TARGET WORD: 0x00100010001000001000100000100010
+Input Buffer data: b0ab
+Input Buffer data: b0a7
+Input Buffer data: b0bc
+(Time: 1555000 ns) >> PACKED OUT TARGET WORD: 0x00001000100000100010000010001000
+Input Buffer data: b0ab
+Input Buffer data: b06f
+(Time: 1585000 ns) >> PACKED OUT TARGET WORD: 0x00100010000010001000001000100000
+Input Buffer data: b06f
+Input Buffer data: b06a
+[K_ESTIMATOR] Memory Data: 0021
+Input Buffer data: b045
+[K_ESTIMATOR] Memory Data: 0079
+Input Buffer data: b01f
+[K_ESTIMATOR] Memory Data: 004d
+Input Buffer data: afc3
+(Time: 1635000 ns) >> PACKED OUT TARGET WORD: 0x10001000001100011110010001101101
+[K_ESTIMATOR] Memory Data: 00b2
+Input Buffer data: af6e
+[K_ESTIMATOR] Memory Data: 0057
+Input Buffer data: af63
+[K_ESTIMATOR] Memory Data: 00b9
+Input Buffer data: af83
+[K_ESTIMATOR] Memory Data: 00a7
+Input Buffer data: af03
+[K_ESTIMATOR] Memory Data: 005c
+Input Buffer data: aef6
+[K_ESTIMATOR] Memory Data: 0003
+Input Buffer data: af29
+[K_ESTIMATOR] Memory Data: 000b
+Input Buffer data: aeb1
+[K_ESTIMATOR] Memory Data: 0075
+Input Buffer data: ae55
+[K_ESTIMATOR] Memory Data: 000c
+Input Buffer data: ae28
+[K_ESTIMATOR] Memory Data: 000e
+Input Buffer data: ae64
+[K_ESTIMATOR] Memory Data: 0009
+Input Buffer data: adca
+[K_ESTIMATOR] Memory Data: 0007
+[K_ESTIMATOR] Memory Data: 002a
+OPTIMAL K CALCULATED:   6 MINIMUM LENGTH:    123
+
+[ENCODER] PACKING OPTIMAL_K:  6 PACK_COUNT:   10
+
+(Time: 1825000 ns) >> PACKED OUT TARGET WORD: 0x00101001010101010101010110000000
+(Time: 1875000 ns) >> PACKED OUT TARGET WORD: 0x00110010000101000010100001010000
+(Time: 1925000 ns) >> PACKED OUT TARGET WORD: 0x10100001010000101000010100001010
+(Time: 1965000 ns) >> PACKED OUT TARGET WORD: 0x00010100001010000101000010100001
+
+=============================================
+SUCCESS: Processing of 160 samples complete!
+=============================================
+/home/pythonofapollo/WorkSpace/Active/packet_compressor/tb/tb_top_level.v:112: $finish called at 2105000 (1ps)

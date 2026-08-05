@@ -5,8 +5,8 @@ import os
 # ==============================================================================
 ITERATIONS = 1000
 TARGET_BATCH_SIZE = 16
-TARGET_PACKAGE_SIZE = 8                                                                         
-TARGET_PACKET_SIZE = 1600
+TARGET_PACKAGE_SIZE = 4                                                                         
+TARGET_PACKET_SIZE = 160
 
 # ==============================================================================
 # 2. DYNAMIC BASE ANCHORS
@@ -16,6 +16,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CONFIG_DIR, "..", ".."))
 
 BUILD_DIR = os.path.join(PROJECT_ROOT, "build")
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+RTL_LOG_DIR = os.path.join(PROJECT_ROOT, "logs", "rtl")
 RTL_DIR = os.path.join(PROJECT_ROOT, "rtl")
 SOURCE_DIR = os.path.join(PROJECT_ROOT,"src")
 TB_DIR = os.path.join(PROJECT_ROOT,"tb")
@@ -43,9 +44,13 @@ BINARY_PATH = os.path.join(PROJECT_ROOT, "src", "pkten_test")
 # 5. SIMULATION LOG TRACKING DUMPS
 # ==============================================================================
 LOGS = {
-    "python": os.path.join(LOG_DIR, "python_sim_log.txt"),
-    "rtl":    os.path.join(LOG_DIR, "rtl_sim_log.txt"),
-    "c":      os.path.join(LOG_DIR, "c_sim_log.txt"),
+    "python"     : os.path.join(LOG_DIR, "python_sim_log.txt"),
+    "rtl"        : os.path.join(RTL_LOG_DIR, "rtl_sim_log.txt"),
+        "delta_proc"    : os.path.join(RTL_LOG_DIR, "delta_sim_log.txt"),
+        "k_estimate"    : os.path.join(RTL_LOG_DIR, "k_sim_log.txt"),
+        "encoder"       : os.path.join(RTL_LOG_DIR, "encoder_sim_log.txt"),
+        "bit_packer"    : os.path.join(RTL_LOG_DIR, "bit_packer_sim_log.txt"),
+    "c"          : os.path.join(LOG_DIR, "c_sim_log.txt"),
     "rtl_output" : os.path.join(LOG_DIR, "sim.vvp"),
     "wave_dump"  : os.path.join(LOG_DIR, "wave.vcd"),
     "csv_file"   : os.path.join(LOG_DIR,"iteration_profiles.csv")
@@ -91,7 +96,6 @@ DATA_BINS = [
 
 
 def get_all_testbenches():
-    import os
     try:
         return [f for f in os.listdir(RTL_DIR) if f.startswith("tb_") and f.endswith(".v")]
     except Exception:

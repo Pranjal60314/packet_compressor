@@ -1,24 +1,22 @@
-======================================================================
-  FILE: AMT00103_raw.bin REPORT (1000 ITERATIONS) : Magnetic Flux in Y of local CoF
-======================================================================
-Average Entropy              : 10.3081 bits/sample
-Average Delta                : 64.7792
-Average Delta Variance       : 8873.2144
-Average Percentage Zero Delta: 0.99%
-Average Parameter k          : 6.02
-Average Bits/Sample          : 8.4933 bits
-Average Compression Ratio    : 1.8890x
-======================================================================
 
-======================================================================
-  FILE: CAT35000_raw.bin REPORT (1000 ITERATIONS) : Acc. sensor head 1 raw acceleration x comp
-======================================================================
-Average Entropy              : 6.6196 bits/sample
-Average Delta                : 9.4572
-Average Delta Variance       : 951.3724
-Average Percentage Zero Delta: 12.45%
-Average Parameter k          : 2.31
-Average Bits/Sample          : 4.7276 bits
-Average Compression Ratio    : 3.5816x
-======================================================================
+=== STAGE: SINGLE CHUNK PROFILING | EXECUTION TIME: 2026-08-05 14:41:11.739156 ===
+=== SINGLE TELEMETRY BATCH COMPRESSION PROFILING ===
+[+] Compiling C engine: /home/pythonofapollo/WorkSpace/Active/packet_compressor/src/pkten.c -> /home/pythonofapollo/WorkSpace/Active/packet_compressor/src/pkten_test
+
+Processing stream target: AMT00103_raw.bin
+[ Processing ] Offset: 0 | Chunk size: 160
+
+================================================================================
+          SINGLE RUN PROFILE REPORT FOR AMT00103_raw.bin
+================================================================================
+    -> Entropy               : 7.2594 bits/sample
+    -> Avg Delta             : 100.4906
+    -> Delta Variance        : 15189.1697
+    -> Compression Ratio     : 1.7021x
+    -> Bits/Sample           : 9.4000 bits
+--------------------------------------------------------------------------------
+ METRIC k DISTRIBUTION:
+    -> k = 6  : 8     selections (40.00%)
+    -> k = 7  : 12    selections (60.00%)
+================================================================================
 
