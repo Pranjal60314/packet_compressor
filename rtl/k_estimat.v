@@ -21,8 +21,9 @@ module k_estimation #(
 );
 
     localparam IDLE     = 2'b00,
-               ACCUM     = 2'b01,
-               COMPARE  = 2'b10;
+               FETCH    = 2'b01,
+               ACCUM    = 2'b10,
+               COMPARE  = 2'b11;
 
     reg [1:0]  state;
     reg [3:0]  index_counter;
@@ -55,25 +56,33 @@ module k_estimation #(
             case (state)
                 IDLE: begin
                     if (start) begin
-                        index_counter <= start_addr;
-                        mem_addr      <= start_addr;
+                        index_counter <= 4'd0;
+                        mem_addr      <= 4'd0; // Issue request for sample 0
                         for (k = 0; k < SAMPLE_SIZE; k = k + 1) comp_len[k] <= 32'd0;
-                        state         <= ACCUM;
+                        state         <= FETCH;
                     end
                 end
 
+                FETCH: begin
+                    // RAM latches addr 0. Issue prefetch for sample 1
+                    mem_addr <= 4'd1;
+                    state    <= ACCUM;
+                end
+
                 ACCUM: begin
+                    // mem_data now contains valid data for index_counter
                     for (k = 0; k < SAMPLE_SIZE; k = k + 1) begin
                         comp_len[k] <= comp_len[k] + step_cost[k];
                     end
 
-                    $display("[K_ESTIMATOR] Memory Data: %h", mem_data);
-                    
+                    $display("[K_ESTIMATOR] Memory Data: %h Index: %d", mem_data, index_counter);
+
                     if (index_counter >= block_size - 1'b1) begin
                         state <= COMPARE;
                     end else begin
                         index_counter <= index_counter + 1'b1;
-                        mem_addr      <= index_counter + 1'b1;
+                        mem_addr      <= mem_addr + 1'b1; // Issue prefetch for next sample
+                        state         <= ACCUM;
                     end
                 end
 
@@ -89,13 +98,13 @@ module k_estimation #(
                     end
                     
                     optimal_k  <= current_k;
-                    $display("OPTIMAL K CALCULATED: %3d MINIMUM LENGTH: %6d\n",current_k,current_min);
+                    $display("OPTIMAL K CALCULATED: %3d MINIMUM LENGTH: %6d\n", current_k, current_min);
 
                     min_length <= current_min;
                     done       <= 1'b1;
                     state      <= IDLE;
                 end
-                
+
                 default: state <= IDLE;
             endcase
         end

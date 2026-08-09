@@ -2,7 +2,7 @@
 
 module encoder #(
     parameter SAMPLE_SIZE = 16,
-    parameter ADDR_WIDTH = 10
+    parameter ADDR_WIDTH  = 10
 )(
     input  wire                  clk,
     input  wire                  rst_n,
@@ -13,6 +13,7 @@ module encoder #(
 
     input  wire [ADDR_WIDTH-1:0] start_addr,
     input  wire [ADDR_WIDTH-1:0] block_size,
+    input  wire                  is_reference,
     input  wire [7:0]            optimal_k,
 
     output reg  [ADDR_WIDTH-1:0] ram_addr,
@@ -24,18 +25,17 @@ module encoder #(
     input  wire                  packer_ready
 );
 
-    localparam IDLE         = 3'b000,
-               PACK_K       = 3'b001,
-               SETUP_READ   = 3'b010,                                                           
-               STREAM       = 3'b011, 
-               DONE         = 3'b100;
+    localparam IDLE           = 3'b000,
+               PACK_K         = 3'b001,
+               PACK_REFERENCE = 3'b101,
+               STREAM         = 3'b011, 
+               DONE           = 3'b100;
 
-    // FIX 1: Expanded state width from [1:0] to [2:0] to fit DONE (3'b100)
     reg [2:0]            state;
     reg [ADDR_WIDTH-1:0] samples_processed;
-    reg                  anomaly_second_half;                                                        
+    reg                  anomaly_second_half;
+    reg [SAMPLE_SIZE-1:0] ref_sample;
 
-                                                            
     wire [SAMPLE_SIZE-1:0] q;
     wire [SAMPLE_SIZE-1:0] r;
     wire [63:0]           unary_bits;
@@ -66,34 +66,53 @@ module encoder #(
             pack_count          <= 6'd0;
             samples_processed   <= 0;
             anomaly_second_half <= 1'b0;
+            ref_sample          <= {SAMPLE_SIZE{1'b0}};
         end else begin
-            pack_en  <= 1'b0;
-            done     <= 1'b0;
+            pack_en <= 1'b0;
+            done    <= 1'b0;
 
             case (state)
                 IDLE: begin
                     if (start) begin
                         encoder_busy        <= 1'b1;
                         samples_processed   <= 0;
-                        ram_addr            <= start_addr;
                         anomaly_second_half <= 1'b0;
-                        state               <= PACK_K;
+                        
+                        // Prefetch address: Read raw reference (addr 0) if reference batch, else start_addr
+                        if (is_reference)
+                            ram_addr <= start_addr - 1'b1;
+                        else
+                            ram_addr <= start_addr;
+
+                        state <= PACK_K;
                     end
                 end
 
                 PACK_K: begin
                     if (packer_ready) begin
                         pack_bits  <= {24'b0, optimal_k};
-                        pack_count <= 6'd8; // 8-bit k header____________________________________________________
+                        pack_count <= 6'd8;
                         pack_en    <= 1'b1;
-                        state      <= SETUP_READ;
-                        $display("[ENCODER] PACKING OPTIMAL_K: %2d PACK_COUNT: %4d\n",optimal_k,pack_count);
+                        
+                        if (is_reference) begin
+                            ref_sample <= ram_data;    // Register valid raw reference data
+                            ram_addr   <= start_addr;  // Request 1st delta sample
+                            state      <= PACK_REFERENCE;
+                        end else begin
+                            ram_addr   <= start_addr + 1'b1; // Request 2nd delta sample
+                            state      <= STREAM;
+                        end
                     end
                 end
 
-                SETUP_READ: begin
-                    ram_addr          <= ram_addr + 1'b1;
-                    state             <= STREAM;
+                PACK_REFERENCE: begin
+                    if (packer_ready) begin
+                        pack_bits  <= { {(32-SAMPLE_SIZE){1'b0}}, ref_sample };
+                        pack_count <= 6'd16;
+                        pack_en    <= 1'b1;
+                        ram_addr   <= start_addr + 1'b1; // Request 2nd delta sample
+                        state      <= STREAM;
+                    end
                 end
 
                 STREAM: begin
@@ -103,29 +122,20 @@ module encoder #(
 
                             if (total_len > 7'd32) begin
                                 anomaly_rem_count   <= (total_len - 7'd32); 
-
                                 pack_bits           <= combined_bits >> (total_len - 7'd32);
                                 pack_count          <= 6'd32;
-
                                 anomaly_upper_bits  <= combined_bits & ((64'd1 << (total_len - 7'd32)) - 64'd1); 
                                 anomaly_second_half <= 1'b1; 
-
-                                ram_addr            <= ram_addr; 
-
-                                $display("[ENCODER] ANOMALY DETECTED WORD SIZE GREATER THAN 32\n");
-                                $display("[ENCODER] PACK_BITS: %32b PACK_COUNT: %4d \n",pack_bits,pack_count);
-
+                                // ram_addr held unchanged during carryover state
                             end else begin
                                 pack_bits           <= combined_bits[31:0];
                                 pack_count          <= total_len[5:0];
                                 samples_processed   <= samples_processed + 1'b1;
 
-                                $display("[ENCODER] PACK_BITS: %32b PACK_COUNT: %4d\n",pack_bits, pack_count);
-
                                 if (samples_processed + 1'b1 >= block_size) begin
                                     state <= DONE;
                                 end else begin
-                                    ram_addr <= ram_addr + 1'b1;
+                                    ram_addr <= ram_addr + 1'b1; // Prefetch next sample
                                 end
                             end
                         end else begin
@@ -133,16 +143,13 @@ module encoder #(
                             pack_en             <= 1'b1;
                             pack_bits           <= anomaly_upper_bits;
                             pack_count          <= anomaly_rem_count; 
-
                             anomaly_second_half <= 1'b0; 
                             samples_processed   <= samples_processed + 1'b1;
-
-                            $display("[ENCODER] PROCESSING ANOMALY CARRYOVER PACK_BITS: %32b PACK_COUNT: %4d\n", pack_bits, pack_count);
 
                             if (samples_processed + 1'b1 >= block_size) begin
                                 state <= DONE;
                             end else begin
-                                ram_addr <= ram_addr + 1'b1;
+                                ram_addr <= ram_addr + 1'b1; // Prefetch next sample
                             end
                         end
                     end
@@ -150,7 +157,6 @@ module encoder #(
 
                 DONE: begin
                     if (packer_ready) begin
-                        $display("[ENCODER] ENCODER DONE ++++++++++++++++++++\n");
                         state        <= IDLE;
                         done         <= 1'b1;
                         encoder_busy <= 1'b0;

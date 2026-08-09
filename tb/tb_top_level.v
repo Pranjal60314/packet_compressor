@@ -94,7 +94,7 @@ always @(*) begin
                 forever begin
                     @(posedge clk);
                     if (compressed_we) begin
-                        $display("(Time: %0t ns) >> PACKED OUT TARGET WORD: 0x%b", $time, compressed_data);
+                        //$display("(Time: %0t ns) >> PACKED OUT TARGET WORD: 0x%b", $time, compressed_data);
                     end
                 end
             end

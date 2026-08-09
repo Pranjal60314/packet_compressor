@@ -8,7 +8,7 @@ uint8_t k_estimation(uint16_t *buffer, int block_size, bool is_reference) {
     for (int i = 0; i < block_size; i++) {
         uint16_t compression_sample = buffer[i];
 
-        for (int j = 0; j < 8; j++) {
+        for (int j = 0; j < 9; j++) {
             uint32_t unchanged_bits = j;
             uint32_t changed_bits = (compression_sample >> j) + 1;
             compression_length[j] += (changed_bits + unchanged_bits);
