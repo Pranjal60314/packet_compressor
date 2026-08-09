@@ -1,0 +1,84 @@
+======================================================================
+  FILE: AMT00103_raw.bin REPORT (1000 ITERATIONS) : Magnetic Flux in Y of local CoF
+======================================================================
+Average Entropy              : 7.2329 bits/sample
+Average Delta                : 79.3201
+Average Delta Variance       : 31348.5897
+Average Percentage Zero Delta: 0.97%
+Average Parameter k          : 6.12
+Average Bits/Sample          : 8.8422 bits
+Average Compression Ratio    : 1.8385x
+======================================================================
+
+======================================================================
+  FILE: CAT35000_raw.bin REPORT (1000 ITERATIONS) : Acc. sensor head 1 raw acceleration x comp
+======================================================================
+Average Entropy              : 5.2877 bits/sample
+Average Delta                : 9.4600
+Average Delta Variance       : 234.9355
+Average Percentage Zero Delta: 4.36%
+Average Parameter k          : 3.45
+Average Bits/Sample          : 5.9467 bits
+Average Compression Ratio    : 2.7142x
+======================================================================
+
+======================================================================
+  FILE: IHT13011_raw.bin REPORT (1000 ITERATIONS) : Current TT thrust demand
+======================================================================
+Average Entropy              : 1.5925 bits/sample
+Average Delta                : 13.9792
+Average Delta Variance       : 7325.4944
+Average Percentage Zero Delta: 78.84%
+Average Parameter k          : 1.36
+Average Bits/Sample          : 3.1285 bits
+Average Compression Ratio    : 8.2856x
+======================================================================
+
+======================================================================
+  FILE: MHT00001_raw.bin REPORT (1000 ITERATIONS) : Low Pressure Transducer
+======================================================================
+Average Entropy              : 3.4571 bits/sample
+Average Delta                : 9.6155
+Average Delta Variance       : 247400.7024
+Average Percentage Zero Delta: 14.83%
+Average Parameter k          : 2.67
+Average Bits/Sample          : 5.2061 bits
+Average Compression Ratio    : 3.0913x
+======================================================================
+
+======================================================================
+  FILE: PHT01000_raw.bin REPORT (1000 ITERATIONS) : Analogue Voltage Sensor line
+======================================================================
+Average Entropy              : 2.8921 bits/sample
+Average Delta                : 4.8200
+Average Delta Variance       : 53662.5544
+Average Percentage Zero Delta: 17.07%
+Average Parameter k          : 2.41
+Average Bits/Sample          : 4.9483 bits
+Average Compression Ratio    : 3.2507x
+======================================================================
+
+======================================================================
+  FILE: SST00101_raw.bin REPORT (1000 ITERATIONS) : Temperature_sensor
+======================================================================
+Average Entropy              : 0.8724 bits/sample
+Average Delta                : 47.4802
+Average Delta Variance       : 25291.2022
+Average Percentage Zero Delta: 78.53%
+Average Parameter k          : 4.65
+Average Bits/Sample          : 7.0414 bits
+Average Compression Ratio    : 2.3797x
+======================================================================
+
+======================================================================
+  FILE: XHT00010_raw.bin REPORT (1000 ITERATIONS) : TRSP1 TX middle voltage of bridge between +6.3 V and -6.3 V
+======================================================================
+Average Entropy              : 4.9759 bits/sample
+Average Delta                : 227.3194
+Average Delta Variance       : 12859335.7100
+Average Percentage Zero Delta: 12.44%
+Average Parameter k          : 3.61
+Average Bits/Sample          : 7.5838 bits
+Average Compression Ratio    : 2.2767x
+======================================================================
+
