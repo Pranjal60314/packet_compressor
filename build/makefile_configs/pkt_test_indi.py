@@ -44,12 +44,13 @@ def calculate_input_parameters(data_list):
 
 def compile_c_engine():
     print(f"[+] Compiling C engine: {pf.C_FILE_PATH} -> {pf.BINARY_PATH}")
-    compile_cmd = f"gcc \"{pf.C_FILE_PATH}\" -o \"{pf.BINARY_PATH}\" -lm"
+    compile_cmd = f"gcc -g -fsanitize=address \"{pf.C_FILE_PATH}\" -o \"{pf.BINARY_PATH}\" -lm"
     compile_proc = subprocess.run(compile_cmd, shell=True, capture_output=True, text=True)
     
     if compile_proc.returncode != 0:
         print("[-] Compilation Failed!")
-        print(compile_proc.stderr)
+        if compile_proc.stderr:
+            print(f"[-] Compiler Error Output:\n{compile_proc.stderr.strip()}")
         return False
     return True
 
@@ -66,22 +67,41 @@ def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
     )
     
     c_output = run_proc.stdout.decode('utf-8', errors='replace')
+    c_stderr = run_proc.stderr.decode('utf-8', errors='replace')
     
+    # Write both stdout and stderr to the C log file
     with open(pf.LOGS["c"], "w", encoding="utf-8") as c_log:
         c_log.write(f"\n{'='*40}\n")
         c_log.write(f" C EXECUTION LOG | PACKET SIZE: {array_size}\n")
         c_log.write(f"{'='*40}\n")
+        c_log.write("--- STDOUT ---\n")
         c_log.write(c_output)
+        if c_stderr:
+            c_log.write("\n--- STDERR ---\n")
+            c_log.write(c_stderr)
+
+    # Check if process terminated with an error code (crash, segfault, non-zero exit)
+    if run_proc.returncode != 0:
+        print(f"[-] C Engine process crashed/failed with exit code {run_proc.returncode}")
+        if c_stderr.strip():
+            print(f"[-] C Engine STDERR:\n{c_stderr.strip()}")
+        return None
 
     match = re.search(r"TOTAL_COMPRESSED_BITS:(\d+)", c_output)
     
     if not match:
         min_matches = re.findall(r"---->MIN:\s*(\d+)", c_output)
         if not min_matches:
+            print("[-] C Engine Error: No expected output markers ('TOTAL_COMPRESSED_BITS' or '---->MIN:') found.")
+            if c_stderr.strip():
+                print(f"[-] C Engine STDERR:\n{c_stderr.strip()}")
             return None
         
         total_batches_expected = array_size // batch_size
         if len(min_matches) != total_batches_expected:
+            print(f"[-] C Engine Output Mismatch: Expected {total_batches_expected} batch matches, but got {len(min_matches)}.")
+            if c_stderr.strip():
+                print(f"[-] C Engine STDERR:\n{c_stderr.strip()}")
             return None
                                                     
         total_payload_bits = sum(int(num) for num in min_matches)
@@ -103,6 +123,7 @@ def run_and_analyze(telemetry_data, array_size, batch_size, package_size):
         "bits_per_sample": bits_per_sample,
         "k_values": k_values
     }
+
 
 def create_profile_parser():
     """Helper parser for the single-chunk telemetry profiler command."""
@@ -157,7 +178,7 @@ def main():
     run_params = run_and_analyze(real_telemetry, args.packet_size, args.batch_size, args.package_size)
 
     if run_params is None:
-        print("[-] C Engine analysis failed or returned mismatched batch output.")
+        print("[-] C Engine analysis failed.")
         sys.exit(1)
 
     # Append single run result to CSV

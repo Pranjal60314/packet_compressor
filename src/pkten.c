@@ -10,19 +10,43 @@
 #include "delta_proc.c"
 #include "helper.c"
 
-                                                                       
-// Force strict bit-by-bit unary packing to eliminate boundary gaps
-void encode_unary(uint32_t quotient, uint64_t *shifter, uint8_t *fill, uint32_t **out_ram) {
-    // If quotient is 2, (1U << 2) - 1 is 3 (binary 11). Shift left 1 to make it 110 (width 3)
+// Helper function to print binary representation of exact packed width
+static void print_binary_bits(uint32_t val, uint8_t width) {
+    for (int i = (int)width - 1; i >= 0; i--) {
+        putchar((val & (1U << i)) ? '1' : '0');
+    }
+}
+
+// Logging wrapper around bit_packer to log exact binary bits emitted
+static void logged_bit_packer(const char *label, 
+                               uint32_t val, 
+                               uint8_t width, 
+                               uint64_t *shifter, 
+                               uint8_t *fill, 
+                               uint32_t **out_ram) 
+{
+    uint32_t masked_val = (width >= 32) ? val : (val & ((1U << width) - 1));
+    
+    //printf("[BIT PACK] %-28s | Width: %2u bits | Hex: 0x%04X | Bits: ", label, width, masked_val);
+    //print_binary_bits(masked_val, width);
+    //printf("\n");
+
+    // Pass down to the original bit_packer implementation
+    bit_packer(val, width, shifter, fill, out_ram);
+}
+
+// Strict bit-by-bit unary packing with explicit bit trace
+void encode_unary(int sample_idx, uint32_t quotient, uint64_t *shifter, uint8_t *fill, uint32_t **out_ram) {
     uint32_t unary_code = ((1U << quotient) - 1) << 1; 
     uint8_t unary_width = quotient + 1;
 
-    bit_packer(unary_code, unary_width, shifter, fill, out_ram);
+    char tag[64];
+    //snprintf(tag, sizeof(tag), "Sample[%d] Unary Q=%u", sample_idx, quotient);
+    logged_bit_packer(tag, unary_code, unary_width, shifter, fill, out_ram);
 }
 
 uint32_t decode_unary(uint64_t *shifter, uint8_t *fill, const uint32_t **in_ram) {
     uint32_t quotient = 0;
-    // Read exactly 1 bit at a time until the terminating 0 is reached
     while (bit_unpacker(1, shifter, fill, in_ram) == 1) {
         quotient++;
     }
@@ -40,22 +64,22 @@ void encoder(const uint16_t *input_buffer,
     uint16_t local_mapped_values[block_size];
     uint16_t track_sample = *last_sample;
                                       
-for (int i = 0; i < block_size; i++) {
+    for (int i = 0; i < block_size; i++) {
         if (is_reference && i == 0) {
             local_mapped_values[i] = input_buffer[i];
             track_sample = input_buffer[i];
-            printf("[ %1d ] REFERENCE BYTE: 0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
-                   i, input_buffer[i], local_mapped_values[i], input_buffer[i]);
+            //printf("[ %1d ] REFERENCE BYTE: 0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
+            //      i, input_buffer[i], local_mapped_values[i], input_buffer[i]);
         } else {
             local_mapped_values[i] = delta_processing(track_sample, input_buffer[i]);
             track_sample = input_buffer[i]; 
-            printf("[ %1d ] REGULAR BYTE:   0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
-                   i, input_buffer[i], local_mapped_values[i], input_buffer[i]);                          
+            //printf("[ %1d ] REGULAR BYTE:   0x%04X  DELTA MAPPED VALUE: 0x%04X  INPUT VALUE: 0x%04X \n", 
+            //       i, input_buffer[i], local_mapped_values[i], input_buffer[i]);                          
         }
     }
 
     *last_sample = track_sample;
-    printf("TRACKING SAMPLE: %8d \n", track_sample);
+    //printf("TRACKING SAMPLE: %8d \n", track_sample);
                                                 
     uint8_t optimal_k;
     if (is_reference) {
@@ -63,29 +87,34 @@ for (int i = 0; i < block_size; i++) {
     } else {
         optimal_k = k_estimation(local_mapped_values, block_size, false);
     }
-    printf("OPTMIAL K VALUE: %1d \n", optimal_k);
+    //printf("OPTIMAL K VALUE: %1d \n", optimal_k);
 
-    bit_packer(optimal_k, 4, shifter_reg, fill_reg, output_buffer);
-    printf("PACKED K \n");
-                                                   
+    // 1. Pack Optimal K (Header)
+    char tag_k[64];
+    //snprintf(tag_k, sizeof(tag_k), "Header (k=%d)", optimal_k);
+    logged_bit_packer(tag_k, optimal_k, 4, shifter_reg, fill_reg, output_buffer);
+
+    // 2. Pack Reference Sample (if reference batch)
     if (is_reference) {                                                    
-        bit_packer(local_mapped_values[0], 16, shifter_reg, fill_reg, output_buffer);
-        printf("REFERENCE PACKED \n");
+        logged_bit_packer("Reference Sample[0]", local_mapped_values[0], 16, shifter_reg, fill_reg, output_buffer);
     }
                                                              
+    // 3. Pack Residuals & Unary Codes
     int start_index = is_reference ? 1 : 0;
     for (int i = start_index; i < block_size; i++) {
         uint16_t sample = local_mapped_values[i];
         uint32_t quotient = sample >> optimal_k;
 
-        encode_unary(quotient, shifter_reg, fill_reg, output_buffer);
+        encode_unary(i, quotient, shifter_reg, fill_reg, output_buffer);
 
         if (optimal_k > 0) {
             uint32_t remainder = sample & ((1U << optimal_k) - 1);
-            bit_packer(remainder, optimal_k, shifter_reg, fill_reg, output_buffer);
+            char tag_rem[64];
+            snprintf(tag_rem, sizeof(tag_rem), "Sample[%d] Remainder", i);
+            logged_bit_packer(tag_rem, remainder, optimal_k, shifter_reg, fill_reg, output_buffer);
         }
     }
-    printf("BITS PACKED MOVING ONTO THE NEXT PACKET \n");
+    //printf("BITS PACKED MOVING ONTO THE NEXT PACKET \n");
 }
 
 void decoder(uint16_t *output_reconstructed_buffer,
@@ -97,7 +126,7 @@ void decoder(uint16_t *output_reconstructed_buffer,
              const uint32_t **input_bitstream)
 {                                                           
     uint8_t optimal_k = bit_unpacker(4, shifter_reg, fill_reg, input_bitstream);
-    printf("[ DECODER DEBUG ] Unpacked optimal_k = %4b\n", optimal_k);
+    //printf("[ DECODER DEBUG ] Unpacked optimal_k = %4d\n", optimal_k);
     
     uint16_t local_mapped_values[block_size];
     int start_index = 0;
@@ -105,7 +134,7 @@ void decoder(uint16_t *output_reconstructed_buffer,
     if (is_reference) {
         local_mapped_values[0] = bit_unpacker(16, shifter_reg, fill_reg, input_bitstream);
         output_reconstructed_buffer[0] = local_mapped_values[0];
-        printf("[ DECODER DEBUG ] Unpacked REFERENCE Sample[0] = %b\n", local_mapped_values[0]);
+        //printf("[ DECODER DEBUG ] Unpacked REFERENCE Sample[0] = %x\n", local_mapped_values[0]);
         *last_sample = local_mapped_values[0];
         start_index = 1;
     }
@@ -118,16 +147,14 @@ void decoder(uint16_t *output_reconstructed_buffer,
         }
 
         local_mapped_values[i] = (quotient << optimal_k) | remainder;                                                                      
-        printf("[ DECODER DEBUG ] Unpacked Mapped Delta[%d] = %b\n", i, local_mapped_values[i]);
+        //printf("[ DECODER DEBUG ] Unpacked Mapped Delta[%d] = %x\n", i, local_mapped_values[i]);
                                                                                  
         output_reconstructed_buffer[i] = inverse_delta_processing(*last_sample, local_mapped_values[i]); 
                                                                    
         *last_sample = output_reconstructed_buffer[i];
     }
 
-    // FIX: Safely prints out the contents of the newly decoded block using the block_size parameter
-    printf("[ DECODER DEBUG ] Current Reconstructed Block: ");
-    //print_buffer(output_reconstructed_buffer, block_size);
+    //printf("[ DECODER DEBUG ] Current Reconstructed Block: ");
 }
 
 int main(int argc, char *argv[]) {
@@ -156,7 +183,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Allocate memory dynamically as chunks arrive from stdin or read from file
     size_t capacity = 4096;
     size_t total_samples = 0;
     uint16_t *dynamic_input = malloc(capacity * sizeof(uint16_t));
@@ -213,11 +239,11 @@ int main(int argc, char *argv[]) {
     uint8_t fill = 0;
     uint16_t running_history_sample = 0; 
 
-    printf("[ CLI Engine ] Compression running on %zu samples...\n", total_samples);
+    //printf("[ CLI Engine ] Compression running on %zu samples...\n", total_samples);
                               
     int total_batches = total_samples / BATCH_SIZE;
     for (int batch_num = 0; batch_num < total_batches; batch_num++) {
-        printf("\n\n\nCOMPRESSING BATCH [ %d ] \n", batch_num);
+        //printf("\n\n\nCOMPRESSING BATCH [ %d ] \n", batch_num);
         uint16_t* current_buffer = dynamic_input + (batch_num * BATCH_SIZE);
         bool is_reference = (batch_num % PACKAGE_SIZE == 0);
         encoder(current_buffer, &running_history_sample, BATCH_SIZE, &shifter, &fill, is_reference, &out_ptr);
@@ -225,10 +251,10 @@ int main(int argc, char *argv[]) {
     bit_packer_flush(&shifter, &fill, &out_ptr);
                                                                              
     ptrdiff_t words_written = out_ptr - output_ram;
-    printf("[ CLI Engine ] Compression Finished. Occupies %td 32-bit words.\n", words_written);
+    //printf("[ CLI Engine ] Compression Finished. Occupies %td 32-bit words.\n", words_written);
 
-    printf("[ CLI Engine ] Re-initializing Decoder loop verification...\n");
-    printf("PRINTING OUTPUTARRAY FOR VERIFICATION : SIZE:[ %td ] \n", words_written);
+    //printf("[ CLI Engine ] Re-initializing Decoder loop verification...\n");
+    //printf("PRINTING OUTPUTARRAY FOR VERIFICATION : SIZE:[ %td ] \n", words_written);
     print_buffer_u32(output_ram, words_written);
 
     const uint32_t *in_decode_ptr = output_ram;
@@ -237,7 +263,7 @@ int main(int argc, char *argv[]) {
     uint16_t decode_history_sample = 0;
 
     for (int batch_num = 0; batch_num < total_batches; batch_num++) {
-        printf("\n[ DECODER ] PROCESSING BATCH [ %d ]\n", batch_num);
+        //printf("\n[ DECODER ] PROCESSING BATCH [ %d ]\n", batch_num);
         uint16_t* target_reconstructed_buffer = decoded_output + (batch_num * BATCH_SIZE);
         bool is_reference = (batch_num % PACKAGE_SIZE == 0);
         decoder(target_reconstructed_buffer, &decode_history_sample, BATCH_SIZE, &decode_shifter, &decode_fill, is_reference, &in_decode_ptr);
@@ -246,11 +272,9 @@ int main(int argc, char *argv[]) {
     bool is_bit_perfect = true;
     int total_processed_samples = total_batches * BATCH_SIZE;
 
-    //print_pipeline_comparison(dynamic_input, decoded_output, total_processed_samples, output_ram, words_written);
-
     for (int i = 0; i < total_processed_samples; i++) {
         if (dynamic_input[i] != decoded_output[i]) {
-            printf("[ ERROR ] Mismatch found at sample index [%d]! Sent: %u, Got: %u\n", i, dynamic_input[i], decoded_output[i]);
+            //printf("[ ERROR ] Mismatch found at sample index [%d]! Sent: %u, Got: %u\n", i, dynamic_input[i], decoded_output[i]);
             is_bit_perfect = false;
             break;
         }

@@ -5,9 +5,9 @@ Average Entropy              : 7.2329 bits/sample
 Average Delta                : 79.3201
 Average Delta Variance       : 31348.5897
 Average Percentage Zero Delta: 0.97%
-Average Parameter k          : 6.12
-Average Bits/Sample          : 8.8422 bits
-Average Compression Ratio    : 1.8385x
+Average Parameter k          : 6.23
+Average Bits/Sample          : 8.6901 bits
+Average Compression Ratio    : 1.8512x
 ======================================================================
 
 ======================================================================
@@ -29,9 +29,9 @@ Average Entropy              : 1.5925 bits/sample
 Average Delta                : 13.9792
 Average Delta Variance       : 7325.4944
 Average Percentage Zero Delta: 78.84%
-Average Parameter k          : 1.36
-Average Bits/Sample          : 3.1285 bits
-Average Compression Ratio    : 8.2856x
+Average Parameter k          : 1.37
+Average Bits/Sample          : 3.1173 bits
+Average Compression Ratio    : 8.2900x
 ======================================================================
 
 ======================================================================
@@ -42,8 +42,8 @@ Average Delta                : 9.6155
 Average Delta Variance       : 247400.7024
 Average Percentage Zero Delta: 14.83%
 Average Parameter k          : 2.67
-Average Bits/Sample          : 5.2061 bits
-Average Compression Ratio    : 3.0913x
+Average Bits/Sample          : 5.1723 bits
+Average Compression Ratio    : 3.0984x
 ======================================================================
 
 ======================================================================
@@ -54,8 +54,8 @@ Average Delta                : 4.8200
 Average Delta Variance       : 53662.5544
 Average Percentage Zero Delta: 17.07%
 Average Parameter k          : 2.41
-Average Bits/Sample          : 4.9483 bits
-Average Compression Ratio    : 3.2507x
+Average Bits/Sample          : 4.9430 bits
+Average Compression Ratio    : 3.2537x
 ======================================================================
 
 ======================================================================
@@ -65,9 +65,9 @@ Average Entropy              : 0.8724 bits/sample
 Average Delta                : 47.4802
 Average Delta Variance       : 25291.2022
 Average Percentage Zero Delta: 78.53%
-Average Parameter k          : 4.65
-Average Bits/Sample          : 7.0414 bits
-Average Compression Ratio    : 2.3797x
+Average Parameter k          : 4.66
+Average Bits/Sample          : 7.0381 bits
+Average Compression Ratio    : 2.3804x
 ======================================================================
 
 ======================================================================
@@ -77,8 +77,8 @@ Average Entropy              : 4.9759 bits/sample
 Average Delta                : 227.3194
 Average Delta Variance       : 12859335.7100
 Average Percentage Zero Delta: 12.44%
-Average Parameter k          : 3.61
-Average Bits/Sample          : 7.5838 bits
-Average Compression Ratio    : 2.2767x
+Average Parameter k          : 3.84
+Average Bits/Sample          : 6.3929 bits
+Average Compression Ratio    : 2.5287x
 ======================================================================
 

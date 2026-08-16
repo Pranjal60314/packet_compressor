@@ -12,7 +12,7 @@ void print_buffer(const uint16_t* array, int size){
 void print_buffer_u32(const uint32_t* array, int size){
     printf("[ ");
     for(int i = 0; i < size; i++){
-        printf("0x%08X ", array[i]);
+        printf("0x%08x ", array[i]);
     }
     printf("]\n");
 }

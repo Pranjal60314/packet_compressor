@@ -5,8 +5,8 @@ import pathfiles as pf
 import helper as hp
 import verilog_sim as vs
 import pkt_test_indi as pkti
+import auto_verify as av
 
-            
 def print_help():
     print("""
 Usage: <command> [options]
@@ -34,6 +34,15 @@ Commands:
                           Examples:
                             profile --file AMT00103_raw.bin
                             profile --file AMT00103_raw.bin --offset 4096 --packet-size 2048
+  verify [options]        Run multi-packet hardware simulation and verify against C golden model.
+                          Options:
+                            --file <name>         Binary dataset (required)
+                            --samples <int>       Total samples (default: 10000)
+                            --packet-size <int>   Packet size (default: 160)
+                            --batch-size <int>    Batch size (default: 16)
+                            --package-size <int>  Package size (default: 4)
+                          Example:
+                            verify --file AMT00103_raw.bin --samples 10000 --packet-size 160
   benchmark               Run C reference model against full dataset.
                           Logs: logs/python_sim_log.txt
                                 logs/iteration_profiles.csv
@@ -47,6 +56,7 @@ Commands:
 def interactive_module():
     hp.setup_environment(purge_logs=False)
     print_help()
+    verify_parser = av.create_verify_parser()
 
     profile_parser = pkti.create_profile_parser()
 
@@ -143,6 +153,21 @@ def interactive_module():
                 cmd.extend(["--package-size", str(parsed_args.package_size)])
 
             hp.run_stage("SINGLE CHUNK PROFILING", cmd, "python")
+
+        elif command == "verify":
+            try:
+                parsed_args = verify_parser.parse_args(args)
+            except SystemExit:
+                print(" Usage: verify --file <filename.bin> [--samples 10000] [--packet-size 160] [--batch-size 16] [--package-size 4]")
+                continue
+            
+            av.run_verification_pipeline(
+                dataset_name=parsed_args.file,
+                total_samples=parsed_args.samples,
+                packet_size=parsed_args.packet_size,
+                batch_size=parsed_args.batch_size,
+                package_size=parsed_args.package_size
+            )
 
         elif command == "benchmark":
             compile_cmd = [sys.executable, os.path.join(pf.BUILD_DIR, "makefile_configs/pkt_test.py")]

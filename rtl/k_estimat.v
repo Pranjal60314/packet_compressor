@@ -75,7 +75,7 @@ module k_estimation #(
                         comp_len[k] <= comp_len[k] + step_cost[k];
                     end
 
-                    $display("[K_ESTIMATOR] Memory Data: %h Index: %d", mem_data, index_counter);
+                    //$display("[K_ESTIMATOR] Memory Data: %h Index: %d", mem_data, index_counter);
 
                     if (index_counter >= block_size - 1'b1) begin
                         state <= COMPARE;
@@ -98,7 +98,7 @@ module k_estimation #(
                     end
                     
                     optimal_k  <= current_k;
-                    $display("OPTIMAL K CALCULATED: %3d MINIMUM LENGTH: %6d\n", current_k, current_min);
+                    //$display("OPTIMAL K CALCULATED: %3d MINIMUM LENGTH: %6d\n", current_k, current_min);
 
                     min_length <= current_min;
                     done       <= 1'b1;

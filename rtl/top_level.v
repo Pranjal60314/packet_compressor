@@ -14,7 +14,7 @@ module top_level #(
     input  wire [ADDR_WIDTH-1:0]   package_size,                                                      
     
     output reg  [ADDR_WIDTH-1:0]   in_buf_addr,
-    input  wire [SAMPLE_SIZE-1:0]   in_buf_data,
+    input  wire [SAMPLE_SIZE-1:0]  in_buf_data,
     
     output wire [31:0]             compressed_data,
     output wire                    compressed_we,
@@ -98,19 +98,23 @@ module top_level #(
         .dout(ramC_dout)
     );
 
+    // Write enables driven strictly when Stage 1 targets the respective RAM
     assign ramA_we   = (stage1_ram_id == 2'd0) ? stg1_ram_we   : 1'b0;
-    assign ramA_addr = (stage1_ram_id == 2'd0) ? stg1_ram_addr :
-                       (stage2_ram_id == 2'd0) ? stg2_ram_addr : stg3_ram_addr;
-    assign ramA_din  = (stage1_ram_id == 2'd0) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
-
     assign ramB_we   = (stage1_ram_id == 2'd1) ? stg1_ram_we   : 1'b0;
-    assign ramB_addr = (stage1_ram_id == 2'd1) ? stg1_ram_addr :
-                       (stage2_ram_id == 2'd1) ? stg2_ram_addr : stg3_ram_addr;
-    assign ramB_din  = (stage1_ram_id == 2'd1) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
-
     assign ramC_we   = (stage1_ram_id == 2'd2) ? stg1_ram_we   : 1'b0;
-    assign ramC_addr = (stage1_ram_id == 2'd2) ? stg1_ram_addr :
-                       (stage2_ram_id == 2'd2) ? stg2_ram_addr : stg3_ram_addr;
+
+    // Address multiplexing guided by RAM lifecycle ownership state
+    assign ramA_addr = (ram_state[0] == RAM_STG2_DONE) ? stg3_ram_addr :
+                       (ram_state[0] == RAM_STG1_DONE) ? stg2_ram_addr : stg1_ram_addr;
+
+    assign ramB_addr = (ram_state[1] == RAM_STG2_DONE) ? stg3_ram_addr :
+                       (ram_state[1] == RAM_STG1_DONE) ? stg2_ram_addr : stg1_ram_addr;
+
+    assign ramC_addr = (ram_state[2] == RAM_STG2_DONE) ? stg3_ram_addr :
+                       (ram_state[2] == RAM_STG1_DONE) ? stg2_ram_addr : stg1_ram_addr;
+
+    assign ramA_din  = (stage1_ram_id == 2'd0) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
+    assign ramB_din  = (stage1_ram_id == 2'd1) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
     assign ramC_din  = (stage1_ram_id == 2'd2) ? stg1_ram_din  : {SAMPLE_SIZE{1'b0}};
 
     wire [SAMPLE_SIZE-1:0] stg2_ram_dout = (stage2_ram_id == 2'd0) ? ramA_dout :
@@ -224,15 +228,10 @@ module top_level #(
                         is_reference_batch       <= 1'b1;
                         in_buf_addr              <= 0;
                         stage1_ram_id            <= 2'd0;
-                        
-                        if (ram_state[2'd0] == RAM_FREE) begin
-                            stg1_ram_addr <= 0;
-                            stg1_ram_we   <= 1'b1;
-                            stg1_busy     <= 1'b1;
-                            s1_state      <= S1_RUN;
-                        end else begin
-                            stg1_busy     <= 1'b1;                               
-                        end
+                        stg1_ram_addr            <= 0;
+                        stg1_ram_we              <= 1'b1;
+                        stg1_busy                <= 1'b1;
+                        s1_state                 <= S1_RUN;
                     end else if (samples_loaded < packet_sample_count) begin
                         if (ram_state[stage1_ram_id] == RAM_FREE) begin
                             stg1_ram_addr <= 0;
@@ -326,7 +325,6 @@ module top_level #(
 
                 S2_WAIT_DONE: begin
                     if (stg2_done) begin
-                        $display("[STAGE 2] Optimal k for RAM ID %0d: %0d\n", stage2_ram_id, stg2_k_calculated);
                         optimal_k_ping_pong[stage2_ram_id] <= stg2_k_calculated;
 
                         stage2_ram_id <= (stage2_ram_id == 2'd2) ? 2'd0 : stage2_ram_id + 1'b1;
@@ -394,9 +392,7 @@ module top_level #(
                 S3_WAIT_DONE: begin
                     if (stg3_done) begin
                         samples_encoded <= samples_encoded + batch_size;
-                        $display("[STAGE 3] Encoding complete for RAM ID %0d. Total Encoded: %0d\n", stage3_ram_id, samples_encoded + batch_size);
-
-                        stage3_ram_id <= (stage3_ram_id == 2'd2) ? 2'd0 : stage3_ram_id + 1'b1;
+                        stage3_ram_id   <= (stage3_ram_id == 2'd2) ? 2'd0 : stage3_ram_id + 1'b1;
 
                         if (samples_encoded + batch_size >= packet_sample_count) begin
                             global_flush_en <= 1'b1;                               

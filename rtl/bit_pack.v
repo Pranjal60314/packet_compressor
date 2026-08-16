@@ -17,26 +17,16 @@ module bit_pack (
     output reg         ram_we,                                 
     output reg         packer_ready                             
 );
-
-                                                                                
-                               
-                                                                                
+                             
     reg [63:0] shifter_reg;
     reg [6:0]  fill_reg;                                              
-
-                                                                                
-                            
-                                                                                
+                              
                                            
     wire [31:0] clean_bits;
     assign clean_bits = (count == 0)  ? 32'b0 :
                         (count >= 32) ? bits  : 
                         (bits & ((32'h1 << count) - 1'b1));
 
-    // -------------------------------------------------------------------------
-    // Step 2: Bit Width Normalization & Alignment Calculations
-    // -------------------------------------------------------------------------
-    // Safely zero-extend tracking signals to 7-bits to prevent type-mismatch warnings
     wire [6:0] fill_7b  = {1'b0, fill_reg};
     wire [6:0] count_7b = {1'b0, count};
 
@@ -56,19 +46,12 @@ module bit_pack (
     assign clean_bits_64b   = {32'b0, clean_bits};
     assign shifted_new_bits = clean_bits_64b << shift_amount;
 
-    // -------------------------------------------------------------------------
-    // Step 4: Merge Combinational Combinations
-    // -------------------------------------------------------------------------
     wire [63:0] next_shifter;
     wire [6:0]  next_fill;
 
     assign next_shifter     = shifter_reg | shifted_new_bits;
     assign next_fill        = fill_reg + count_7b;
 
-
-    // -------------------------------------------------------------------------
-    // Step 5: Sequential Execution Logic
-    // -------------------------------------------------------------------------
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             shifter_reg  <= 64'b0;
