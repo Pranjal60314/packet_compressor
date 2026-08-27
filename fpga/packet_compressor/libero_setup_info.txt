@@ -1,0 +1,12 @@
+# Microsemi Corp.
+# Date: 2026-Aug-27 19:10:22
+Libero Release : 2026.1
+Libero Version : 2026.1.0.17
+Operating System Name : Linux
+Linux Distribution 
+Ram Size : 14.90 GB (usable)
+OS Type : 64-bit
+
+Environment Variables : 
+---------------------
+	Please enable the option from 'Preferences => Startup => Export environment variables' to get this info.

@@ -22,7 +22,7 @@ def run_verilog_sim(tb_path, sources, output_bin, tb_name):
         target_vcd = os.path.join(pf.LOG_DIR, f"{tb_name.removesuffix('.v')}_dump.vcd")
         
         print("\n [\033[92mSimulation Success\033[0m] -> Launching Waveform Viewer automatically...")
-        #show_gtk(target_vcd)
+        show_gtk(target_vcd)
 
     return sim_success
 
@@ -33,5 +33,5 @@ def show_gtk(target_vcd):
         subprocess.Popen(["gtkwave", target_vcd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         print(f"  Error: Waveform file not found at: {target_vcd}")
-        print(f"    Ensure your testbench uses: $dumpfile(\"build/{os.path.basename(target_vcd)}\");")
+        print(f"    Ensure your testbench uses: $dumpfile(\logs/{os.path.basename(target_vcd)}\");")
 

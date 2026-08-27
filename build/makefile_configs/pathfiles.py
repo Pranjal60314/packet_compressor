@@ -80,6 +80,7 @@ TB_FILES = {
 # 6. DATA PARSING & PORTABLE TELEMETRY LAYOUT
 # ==============================================================================
 TELEMETRY_TEST_DIR = os.path.join(BUILD_DIR, "telemetry_test")
+
 os.makedirs(TELEMETRY_TEST_DIR, exist_ok=True)
 
 DATA_BINS = [

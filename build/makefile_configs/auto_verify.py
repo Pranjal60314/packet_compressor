@@ -16,7 +16,7 @@ def update_testbench_config(dataset_name: str, total_samples: int, packet_size: 
         print(f"[-] Error: Testbench not found in {os.path.join(pf.TB_DIR, 'tb_top_level.v')}")
         return False, None
 
-    raw_bin_path = os.path.join(pf.DATASET_DIR, dataset_name)
+    raw_bin_path = os.path.join(pf.TELEMETRY_TEST_DIR, dataset_name)
 
     if not os.path.exists(raw_bin_path):
         print(f"[-] Warning: Dataset file not found at {raw_bin_path}")
@@ -40,17 +40,21 @@ def isolate_packet_blocks(
     source: Union[str, os.PathLike],
     include_headers: bool = False
 ) -> Dict[int, Dict[str, Union[int, str, List[str]]]]:
-    """Isolates each packet section from a simulation log file."""
+    """
+    Parses simulation logs containing 'Streaming Packet' markers 
+    and handles Verilog 'x'/'z' logic states cleanly.
+    """
     if isinstance(source, (str, os.PathLike)) and os.path.exists(str(source)):
         with open(source, "r", encoding="utf-8") as f:
             content = f.read()
     else:
         content = str(source)
 
+    # Robust regex matching both 'Streaming'/'Starting' and 'Processing Finished'/'Complete'
     pattern = re.compile(
-        r'(--- Starting Packet\s+(?P<pkt_num>\d+)\s*/\s*(?P<total_pkts>\d+)\s*\(Sample Offset:\s*(?P<offset>\d+)\)\s*---)'
+        r'(--- (?:Streaming|Starting) Packet\s+(?P<pkt_num>\d+)\s*/\s*(?P<total_pkts>\d+)\s*\(Sample Offset:\s*(?P<offset>\d+)\)[^\n]*)'
         r'(?P<body>.*?)'
-        r'(--- Packet\s+(?P=pkt_num)\s+Complete[^\n]*)',
+        r'(--- Packet\s+(?P=pkt_num)\s+(?:Processing Finished|Complete)[^\n]*)',
         re.DOTALL
     )
 
@@ -63,11 +67,17 @@ def isolate_packet_blocks(
         body = match.group("body").strip()
 
         isolated_str = f"{match.group(1)}\n{body}\n{match.group(5)}" if include_headers else body
-        words = re.findall(r'PACKED OUT TARGET WORD:\s*(0x[0-9a-fA-F]{1,8})', body)
-        if not words:
-            words = re.findall(r'0x[0-9a-fA-F]{8}', body)
 
-        normalized_words = [f"0x{int(w, 16):08x}" for w in words]
+        raw_words = re.findall(r'PACKED OUT TARGET WORD:\s*(0x[0-9a-fA-FxXzZ]{1,8})', body)
+        if not raw_words:
+            raw_words = re.findall(r'0x[0-9a-fA-FxXzZ]{8}', body)
+
+        # Normalize words, replacing 'x'/'z' with '0' for safe numeric parsing
+        normalized_words = []
+        for w in raw_words:
+            hex_str = w.lower().replace("0x", "")
+            sanitized_hex = re.sub(r'[xz]', '0', hex_str)
+            normalized_words.append(f"0x{int(sanitized_hex, 16):08x}")
 
         extracted_packets[pkt_num] = {
             "packet_num": pkt_num,
@@ -164,6 +174,7 @@ def run_verification_pipeline(dataset_name: str, total_samples: int = 10000, pac
 
     # 4. Locate RTL output log
     rtl_log_path = os.path.join(pf.LOG_DIR, "rtl/rtl_sim_log.txt")
+    print("Loading RTL simulation log from:", rtl_log_path)
     if not os.path.exists(rtl_log_path):
         rtl_log_path = os.path.join(pf.LOG_DIR, "rtl_sim_log.txt")
 
@@ -173,6 +184,7 @@ def run_verification_pipeline(dataset_name: str, total_samples: int = 10000, pac
 
     # 5. Isolate packets from RTL log
     all_packets = isolate_packet_blocks(rtl_log_path)
+    print(f"[*] Isolated {len(all_packets)} packet(s) from RTL log at {rtl_log_path}")
     total_packets = len(all_packets)
 
     if total_packets == 0:
