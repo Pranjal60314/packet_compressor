@@ -6,6 +6,16 @@ _pycache_
 .gitignore
 .gitattributes
 lifeos_combined.md
-
-
+fpga/packet_compressor/
+fpga/**/synthesis/
+fpga/**/simulation/
+fpga/**/designer/
+fpga/**/component/
+*.srr
+*.vcd
+*.txt
+*.log
+__pycache__/
+*.pyc
+EOF
 
