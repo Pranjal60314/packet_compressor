@@ -57,6 +57,9 @@ LOGS = {
     
 }
 
+for log_path in LOGS.values():
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
 # ==============================================================================
 # 6. RTL FILES AND TEST BENCHES
 # ==============================================================================
