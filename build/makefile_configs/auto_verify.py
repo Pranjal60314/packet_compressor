@@ -1,3 +1,5 @@
+#verification of all the outputs of the hardware against the C golden model
+
 import os
 import sys
 import re

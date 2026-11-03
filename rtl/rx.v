@@ -12,11 +12,11 @@ module buffered_uart_rx #(
     input  wire       uart_rx_en,  // Enable for the RX module logic
     
     // Interface to System
-    output wire [7:0] rd_data,     // Data out from FIFO
-    input  wire       rd_en,       // System pulses this to "pop" a byte
-    output wire       fifo_empty,  // High if no data is available
-    output wire       fifo_full,   // High if buffer is overflowing
-    output wire       rx_break     // BREAK condition detected
+    output wire [7:0] rd_data,     
+    input  wire       rd_en,       
+    output wire       fifo_empty,  
+    output wire       fifo_full,   
+    output wire       rx_break     
 );
 
     wire [7:0] raw_rx_data;
@@ -48,12 +48,6 @@ module buffered_uart_rx #(
 
 endmodule
 
-// 
-// Module: uart_rx 
-// 
-// Notes:
-// - UART reciever module.
-//
 
 module uart_rx
 #(
@@ -62,12 +56,12 @@ module uart_rx
     parameter   PAYLOAD_BITS    = 8,
     parameter   STOP_BITS       = 1
 )(
-input  wire       clk          , // Top level system clock input.
-input  wire       resetn       , // Asynchronous active low reset.
-input  wire       uart_rxd     , // UART Recieve pin.
-input  wire       uart_rx_en   , // Recieve enable
-output wire       uart_rx_break, // Did we get a BREAK message?
-output wire       uart_rx_valid, // Valid data recieved and available.
+input  wire       clk          , 
+input  wire       resetn       , 
+input  wire       uart_rxd     , 
+input  wire       uart_rx_en   , 
+output wire       uart_rx_break, 
+output wire       uart_rx_valid, 
 output reg  [PAYLOAD_BITS-1:0] uart_rx_data   // The recieved data.
 );
 

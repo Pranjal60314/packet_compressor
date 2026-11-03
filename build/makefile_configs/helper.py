@@ -1,3 +1,5 @@
+#environment setup and stage execution helper functions for the makefile
+#stage execution works by calling the programs out by itself important for all other program running
 import os
 import sys
 import subprocess
